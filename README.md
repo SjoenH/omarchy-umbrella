@@ -1,6 +1,9 @@
-# Weather with Umbrella Alerts
+# koka.weather - Weather with Umbrella Alerts
 
 A customized Omarchy weather widget that adds smart umbrella alerts to help you plan your day.
+
+**Plugin ID:** `koka.weather`  
+**Author:** Koka ([koka.no](https://koka.no))
 
 ## Features
 
@@ -21,14 +24,14 @@ A customized Omarchy weather widget that adds smart umbrella alerts to help you 
 1. Clone this plugin to your Omarchy plugins directory:
 ```bash
 cd ~/.config/omarchy/plugins
-git clone <your-repo-url> henry.weather
+git clone https://github.com/SjoenH/omarchy-weather-umbrella.git koka.weather
 ```
 
 2. Add the plugin to your `~/.config/omarchy/shell.json`:
 ```json
 {
   "center": [
-    "henry.weather"
+    "koka.weather"
   ]
 }
 ```
