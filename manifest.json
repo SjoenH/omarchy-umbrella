@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "henry.weather",
+  "name": "Weather with Umbrella Alerts",
+  "version": "1.0.0",
+  "author": "Henry",
+  "license": "MIT",
+  "description": "Weather widget with umbrella alerts - shows ☂️ when rain expected within 90 minutes, ☔ for later rain",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Weather with Umbrella Alerts",
+    "description": "Weather with smart rain alerts",
+    "category": "Info",
+    "allowMultiple": false,
+    "settingsForm": "weatherSettings"
+  },
+  "omarchy": {
+    "clonedFrom": "omarchy.weather"
+  }
+}
