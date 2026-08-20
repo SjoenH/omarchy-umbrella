@@ -4,7 +4,7 @@ import qs.Ui
 
 BarWidget {
   id: root
-  moduleName: "henry.weather"
+  moduleName: "koka.weather"
 
   function injectPanel() {
     var target = panelLoader.item

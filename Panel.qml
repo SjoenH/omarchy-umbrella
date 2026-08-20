@@ -7,7 +7,7 @@ import "Model.js" as Model
 
 Panel {
   id: root
-  moduleName: "henry.weather"
+  moduleName: "koka.weather"
   ipcTarget: "omarchy.weather"
   manageIpc: false
 

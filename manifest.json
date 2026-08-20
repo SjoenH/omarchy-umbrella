@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "id": "henry.weather",
+  "id": "koka.weather",
   "name": "Weather with Umbrella Alerts",
   "version": "1.0.0",
-  "author": "Henry",
+  "author": "Koka (koka.no)",
   "license": "MIT",
   "description": "Weather widget with umbrella alerts - shows ☂️ when rain expected within 90 minutes, ☔ for later rain",
   "kinds": [
