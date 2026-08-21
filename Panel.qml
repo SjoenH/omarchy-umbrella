@@ -127,6 +127,7 @@ Panel {
   property string label: ""
   property bool needUmbrellaSoon: false
   property bool needUmbrellaToday: false
+  property int minutesUntilRain: -1  // Minutes until rain starts, -1 if no rain expected
 
   // wttr's current conditions when available; open-meteo's (bundled with the
   // much faster daily forecast fetch) fill the hero while wttr is in flight.
@@ -266,6 +267,7 @@ Panel {
     if (!forecastData || !forecastData.hourly || !forecastData.hourly.precipitation || !forecastData.hourly.time) {
       root.needUmbrellaSoon = false
       root.needUmbrellaToday = false
+      root.minutesUntilRain = -1
       return
     }
     
@@ -286,38 +288,68 @@ Panel {
     if (currentIndex === -1) {
       root.needUmbrellaSoon = false
       root.needUmbrellaToday = false
+      root.minutesUntilRain = -1
       return
     }
     
-    // Check next 2 hours for immediate rain (90 minutes)
-    var rainSoon = false
+    // Check for rain and calculate minutes until it starts
     var rainThresholdSoon = 0.1
+    var rainThresholdToday = 0.2
+    var firstRainIndex = -1
+    var rainSoon = false
+    var rainToday = false
+    
+    // First check next 2 hours with lower threshold for "soon" detection
     for (var j = currentIndex; j < Math.min(currentIndex + 2, precipitation.length); j++) {
       if (precipitation[j] && precipitation[j] > rainThresholdSoon) {
+        if (firstRainIndex === -1) {
+          firstRainIndex = j
+          var rainTime = new Date(times[j])
+          root.minutesUntilRain = Math.round((rainTime - now) / (1000 * 60))
+        }
         rainSoon = true
         break
       }
     }
-    root.needUmbrellaSoon = rainSoon
     
-    // Check next 16 hours for rain today
-    var rainToday = false
-    var rainThresholdToday = 0.2
-    for (var k = currentIndex; k < Math.min(currentIndex + 16, precipitation.length); k++) {
-      if (precipitation[k] && precipitation[k] > rainThresholdToday) {
-        rainToday = true
-        break
+    // If no soon rain, check next 16 hours with higher threshold for "today" detection
+    if (!rainSoon) {
+      for (var k = currentIndex; k < Math.min(currentIndex + 16, precipitation.length); k++) {
+        if (precipitation[k] && precipitation[k] > rainThresholdToday) {
+          if (firstRainIndex === -1) {
+            firstRainIndex = k
+            var rainTimeLater = new Date(times[k])
+            root.minutesUntilRain = Math.round((rainTimeLater - now) / (1000 * 60))
+          }
+          rainToday = true
+          break
+        }
       }
     }
+    
+    if (firstRainIndex === -1) {
+      root.minutesUntilRain = -1
+    }
+    
+    root.needUmbrellaSoon = rainSoon
     root.needUmbrellaToday = rainToday && !rainSoon
   }
 
   function updateLabelWithUmbrella(icon) {
     var umbrellaIcon = ""
     if (root.needUmbrellaSoon) {
-      umbrellaIcon = " ☂️"
+      if (root.minutesUntilRain >= 0) {
+        umbrellaIcon = " ☔ " + root.minutesUntilRain + "m"
+      } else {
+        umbrellaIcon = " ☔"
+      }
     } else if (root.needUmbrellaToday) {
-      umbrellaIcon = " ☔"
+      if (root.minutesUntilRain >= 0) {
+        var hours = Math.floor(root.minutesUntilRain / 60)
+        umbrellaIcon = " ☂️ " + hours + "h"
+      } else {
+        umbrellaIcon = " ☂️"
+      }
     }
     root.label = icon + umbrellaIcon
   }

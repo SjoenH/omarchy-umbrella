@@ -8,8 +8,8 @@ A customized Omarchy weather widget that adds smart umbrella alerts to help you 
 ## Features
 
 - **Smart Umbrella Alerts**
-  - ☂️ Shows when rain is expected within the next 90 minutes
-  - ☔ Shows when rain is expected later today (within 16 hours)
+  - ☔ Shows when rain is expected within the next 90 minutes (with minutes countdown)
+  - ☂️ Shows when rain is expected later today (with hours countdown)
 - Full weather information with detailed forecast panel
 - Location auto-detection or manual configuration
 - Temperature, humidity, wind speed, and feels-like temperature
@@ -56,8 +56,9 @@ The plugin uses the Open-Meteo API to fetch:
 - Daily weather forecasts
 
 Umbrella logic:
-- **☂️ (urgent)**: Any hour in the next 2 hours has >0.1mm precipitation
-- **☔ (later)**: Any hour in the next 16 hours has >0.2mm precipitation
+- **☔ + minutes (urgent)**: Rain expected within 2 hours, shows minutes until rain starts
+- **☂️ + hours (reminder)**: Rain expected later (within 16 hours), shows hours until rain starts
+- Precipitation threshold: >0.1mm for soon, >0.2mm for later
 
 ## Credits
 

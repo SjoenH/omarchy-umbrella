@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "author": "Koka (koka.no)",
   "license": "MIT",
-  "description": "Weather widget with umbrella alerts - shows ☂️ when rain expected within 90 minutes, ☔ for later rain",
+  "description": "Weather widget with umbrella alerts - shows ☔30m when rain expected soon, ☂️2h for later rain",
   "kinds": [
     "bar-widget"
   ],
