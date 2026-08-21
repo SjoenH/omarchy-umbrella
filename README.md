@@ -50,9 +50,13 @@ Click the weather widget to open the detailed panel where you can:
 
 ## How It Works
 
-The plugin uses the Open-Meteo API to fetch:
+The plugin intelligently selects weather data sources based on your location:
+- **Norway**: Uses Yr.no (met.no) API for superior accuracy in Norwegian locations
+- **Rest of world**: Uses Open-Meteo API for global coverage
+
+The plugin fetches:
 - Current weather conditions
-- Hourly precipitation forecasts
+- Hourly precipitation forecasts (for umbrella alerts)
 - Daily weather forecasts
 
 Umbrella logic:

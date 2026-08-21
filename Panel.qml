@@ -177,16 +177,78 @@ Panel {
     }
     if (isNaN(lat) || isNaN(lon)) return
 
-    var url = "https://api.open-meteo.com/v1/forecast"
-      + "?latitude=" + encodeURIComponent(String(lat))
-      + "&longitude=" + encodeURIComponent(String(lon))
-      + "&daily=weather_code,temperature_2m_max,temperature_2m_min"
-      + "&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code,is_day"
-      + "&hourly=precipitation"
-      + "&forecast_days=4"
-      + "&timezone=auto"
-    dailyForecastProc.command = ["curl", "-fsS", "--max-time", "5", url]
+    // Use Yr.no (met.no) for Norway, Open-Meteo for rest of world
+    var inNorway = isInNorway(lat, lon)
+    var url = ""
+    
+    if (inNorway) {
+      url = "https://api.met.no/weatherapi/locationforecast/2.0/complete"
+        + "?lat=" + encodeURIComponent(String(lat))
+        + "&lon=" + encodeURIComponent(String(lon))
+      dailyForecastProc.command = ["curl", "-fsS", "--max-time", "5", "-H", "User-Agent: koka.weather/1.0 github.com/SjoenH/omarchy-weather-umbrella", url]
+    } else {
+      url = "https://api.open-meteo.com/v1/forecast"
+        + "?latitude=" + encodeURIComponent(String(lat))
+        + "&longitude=" + encodeURIComponent(String(lon))
+        + "&daily=weather_code,temperature_2m_max,temperature_2m_min"
+        + "&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code,is_day"
+        + "&hourly=precipitation"
+        + "&forecast_days=4"
+        + "&timezone=auto"
+      dailyForecastProc.command = ["curl", "-fsS", "--max-time", "5", url]
+    }
+    
     dailyForecastProc.running = true
+  }
+  
+  function isInNorway(lat, lon) {
+    // Norway bounding box (approximate): lat 57.5-71.5, lon 4.5-31.5
+    return lat >= 57.5 && lat <= 71.5 && lon >= 4.5 && lon <= 31.5
+  }
+  
+  function convertYrSymbolToOpenMeteoCode(symbolCode) {
+    // Convert Yr.no symbol codes to Open-Meteo WMO weather codes
+    // Yr.no: https://api.met.no/weatherapi/weathericon/2.0/documentation
+    // Open-Meteo: https://open-meteo.com/en/docs (WMO codes)
+    
+    // Remove _day/_night/_polartwilight suffix
+    var base = symbolCode.replace(/_day|_night|_polartwilight/g, "")
+    
+    switch (base) {
+      case "clearsky": return 0  // Clear sky
+      case "fair": return 1  // Mainly clear
+      case "partlycloudy": return 2  // Partly cloudy
+      case "cloudy": return 3  // Overcast
+      case "fog": return 45  // Fog
+      case "lightrainshowers": return 80  // Light rain showers
+      case "rainshowers": return 81  // Rain showers
+      case "heavyrainshowers": return 82  // Heavy rain showers
+      case "lightrain": return 61  // Light rain
+      case "rain": return 63  // Rain
+      case "heavyrain": return 65  // Heavy rain
+      case "lightrainandthunder": return 95  // Thunderstorm
+      case "rainandthunder": return 95  // Thunderstorm
+      case "heavyrainandthunder": return 95  // Thunderstorm
+      case "lightsleetshowers": return 68  // Light sleet
+      case "sleetshowers": return 68  // Sleet
+      case "heavysleetshowers": return 68  // Heavy sleet
+      case "lightsleet": return 66  // Light sleet
+      case "sleet": return 67  // Sleet
+      case "heavysleet": return 68  // Heavy sleet
+      case "lightsnowshowers": return 85  // Light snow showers
+      case "snowshowers": return 85  // Snow showers
+      case "heavysnowshowers": return 86  // Heavy snow showers
+      case "lightsnow": return 71  // Light snow
+      case "snow": return 73  // Snow
+      case "heavysnow": return 75  // Heavy snow
+      case "lightsleetandthunder": return 95  // Thunderstorm with sleet
+      case "sleetandthunder": return 95  // Thunderstorm with sleet
+      case "lightsnowandthunder": return 95  // Thunderstorm with snow
+      case "snowandthunder": return 95  // Thunderstorm with snow
+      case "heavysleetandthunder": return 95  // Thunderstorm with sleet
+      case "heavysnowandthunder": return 95  // Thunderstorm with snow
+      default: return 3  // Default to overcast if unknown
+    }
   }
 
   // ---- Location editing. Clicking the location label swaps it for a search
@@ -262,6 +324,77 @@ Panel {
     locationSaveProc.running = true
   }
 
+  function checkRainFromForecast(forecastData) {
+    // Check if this is Yr.no (met.no) or Open-Meteo data
+    if (forecastData && forecastData.properties && forecastData.properties.timeseries) {
+      checkRainFromYrNo(forecastData)
+    } else {
+      checkRainFromOpenMeteo(forecastData)
+    }
+  }
+  
+  function checkRainFromYrNo(forecastData) {
+    // Check Yr.no (met.no) forecast for precipitation
+    if (!forecastData || !forecastData.properties || !forecastData.properties.timeseries) {
+      root.needUmbrellaSoon = false
+      root.needUmbrellaToday = false
+      root.minutesUntilRain = -1
+      return
+    }
+    
+    var timeseries = forecastData.properties.timeseries
+    var now = new Date()
+    
+    // Check for rain and calculate minutes until it starts
+    var rainThresholdSoon = 0.1
+    var rainThresholdToday = 0.2
+    var firstRainTime = null
+    var rainSoon = false
+    var rainToday = false
+    
+    // Process each hourly entry
+    for (var i = 0; i < Math.min(timeseries.length, 16); i++) {
+      var entry = timeseries[i]
+      if (!entry || !entry.time || !entry.data || !entry.data.next_1_hours) continue
+      
+      var entryTime = new Date(entry.time)
+      var hoursDiff = (entryTime - now) / (1000 * 60 * 60)
+      if (hoursDiff < 0) continue  // Skip past entries
+      
+      var details = entry.data.next_1_hours.details
+      if (!details) continue
+      
+      var precip = parseFloat(details.precipitation_amount || 0)
+      
+      // Check if this is within 2 hours (soon)
+      if (hoursDiff <= 2 && precip > rainThresholdSoon) {
+        if (!firstRainTime) {
+          firstRainTime = entryTime
+          root.minutesUntilRain = Math.round((entryTime - now) / (1000 * 60))
+        }
+        rainSoon = true
+        break
+      }
+      
+      // Check if this is within 16 hours (today)
+      if (hoursDiff <= 16 && precip > rainThresholdToday) {
+        if (!firstRainTime) {
+          firstRainTime = entryTime
+          root.minutesUntilRain = Math.round((entryTime - now) / (1000 * 60))
+        }
+        rainToday = true
+        if (!rainSoon) break  // Continue checking for soon rain
+      }
+    }
+    
+    if (!firstRainTime) {
+      root.minutesUntilRain = -1
+    }
+    
+    root.needUmbrellaSoon = rainSoon
+    root.needUmbrellaToday = rainToday && !rainSoon
+  }
+  
   function checkRainFromOpenMeteo(forecastData) {
     // Check Open-Meteo forecast for precipitation
     if (!forecastData || !forecastData.hourly || !forecastData.hourly.precipitation || !forecastData.hourly.time) {
@@ -496,12 +629,46 @@ Panel {
         }
         try {
           var parsed = JSON.parse(raw)
-          var parsedCurrent = Model.openMeteoCurrentCondition(parsed)
+          
+          // Check if this is Yr.no or Open-Meteo data
+          var isYrNo = parsed.properties && parsed.properties.timeseries
+          var parsedCurrent = null
+          
+          if (isYrNo) {
+            // For Yr.no, extract current conditions from first timeseries entry
+            if (parsed.properties.timeseries && parsed.properties.timeseries.length > 0) {
+              var firstEntry = parsed.properties.timeseries[0]
+              if (firstEntry.data && firstEntry.data.instant && firstEntry.data.instant.details) {
+                var details = firstEntry.data.instant.details
+                var symbolCode = firstEntry.data.next_1_hours?.summary?.symbol_code || ""
+                
+                // Convert Yr.no symbol_code to Open-Meteo weather code
+                var weatherCode = convertYrSymbolToOpenMeteoCode(symbolCode)
+                
+                parsedCurrent = {
+                  temp_C: Math.round(details.air_temperature || 0),
+                  temp_F: Math.round((details.air_temperature || 0) * 9/5 + 32),
+                  FeelsLikeC: Math.round(details.air_temperature || 0),  // Yr doesn't provide feels-like
+                  FeelsLikeF: Math.round((details.air_temperature || 0) * 9/5 + 32),
+                  humidity: Math.round(details.relative_humidity || 0),
+                  windspeedKmph: Math.round((details.wind_speed || 0) * 3.6),  // m/s to km/h
+                  windspeedMiles: Math.round((details.wind_speed || 0) * 2.237),  // m/s to mph
+                  openMeteoWeatherCode: weatherCode,
+                  isDay: symbolCode.includes("_day") ? 1 : (symbolCode.includes("_night") ? 0 : 1)
+                }
+              }
+            }
+          } else {
+            parsedCurrent = Model.openMeteoCurrentCondition(parsed)
+          }
+          
           root.dailyForecastReport = parsed
-          root.checkRainFromOpenMeteo(parsed)
-          root.updateLabelWithUmbrella(Model.currentIcon(parsedCurrent, ""))
+          root.checkRainFromForecast(parsed)
+          if (parsedCurrent) {
+            root.updateLabelWithUmbrella(Model.currentIcon(parsedCurrent, ""))
+          }
           root.dailyForecastRetries = 0
-          if (Model.weatherResponseCompletesSave(root.hasConfiguredCoordinates, "open-meteo"))
+          if (Model.weatherResponseCompletesSave(root.hasConfiguredCoordinates, isYrNo ? "yr" : "open-meteo"))
             root.finishSavingLocation()
         } catch (e) {
           // Keep last-good daily forecast visible, but try again shortly.
