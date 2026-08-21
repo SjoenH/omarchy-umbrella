@@ -584,52 +584,14 @@ Panel {
 
       // ---- Hero row: big icon + temp on the left; location and stats stacked on the right.
       Item {
+        id: heroRow
         width: parent.width
         height: Math.max(heroLeft.height, heroRight.height)
 
-        Row {
-          id: heroLeft
-          anchors.left: parent.left
-          anchors.leftMargin: Style.space(16)
-          anchors.verticalCenter: parent.verticalCenter
-          spacing: Style.space(16)
-
-          Text {
-            id: heroIcon
-            anchors.verticalCenter: parent.verticalCenter
-            anchors.verticalCenterOffset: 5
-            text: root.label || "—"
-            color: root.bar.foreground
-            font.family: root.bar.fontFamily
-            // Decorative condition emoji; intentionally larger than the
-            // Style.font.* scale's displayLarge (28).
-            font.pixelSize: 64
-          }
-
-          Row {
-            anchors.verticalCenter: parent.verticalCenter
-            spacing: Style.space(2)
-
-            Text {
-              id: tempBig
-              text: root.reportTempNum || "—"
-              color: root.bar.foreground
-              font.family: root.bar.fontFamily
-              // Hero temperature read-out; deliberately oversized, outside
-              // the Style.font.* scale.
-              font.pixelSize: 56
-              font.bold: true
-            }
-            Text {
-              text: root.current ? root.tempUnit : ""
-              color: root.bar.foreground
-              font.family: root.bar.fontFamily
-              font.pixelSize: Style.font.display
-              anchors.top: tempBig.top
-              anchors.topMargin: Style.space(10)
-            }
-          }
-        }
+        // Narrow panels (fittedContentWidth can shrink below the preferred
+        // 480) shrink decorative sizes instead of letting the left group run
+        // under the stats column.
+        readonly property bool compact: width < Style.space(460)
 
         Column {
           id: heroRight
@@ -658,12 +620,15 @@ Panel {
               anchors.verticalCenter: parent.verticalCenter
             }
             Text {
+              // Elide long names instead of overflowing past the panel edge.
               text: (root.reportLocation || "").toUpperCase()
               color: Qt.darker(root.bar.foreground, 1.4)
               font.family: root.bar.fontFamily
               font.pixelSize: Style.font.body
               font.letterSpacing: 1
               anchors.verticalCenter: parent.verticalCenter
+              elide: Text.ElideRight
+              width: Math.min(implicitWidth, Math.max(0, heroRight.width - Style.space(26)))
             }
           }
 
@@ -736,7 +701,7 @@ Panel {
           Row {
             id: weatherStats
             visible: !!root.current
-            spacing: Style.space(36)
+            spacing: heroRow.compact ? Style.space(14) : Style.space(36)
 
             Column {
               spacing: Style.space(5)
@@ -787,6 +752,64 @@ Panel {
                 font.family: root.bar.fontFamily
                 font.pixelSize: Style.font.title
               }
+            }
+          }
+        }
+
+        Row {
+          id: heroLeft
+          anchors.left: parent.left
+          anchors.leftMargin: Style.space(16)
+          // Right-bounded by the stats column so the two sides can never
+          // collide; the temperature shrinks (HorizontalFit) to whatever
+          // width is left.
+          anchors.right: heroRight.left
+          anchors.rightMargin: Style.space(14)
+          anchors.verticalCenter: parent.verticalCenter
+          spacing: Style.space(16)
+
+          Text {
+            id: heroIcon
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.verticalCenterOffset: 5
+            text: root.label || "—"
+            color: root.bar.foreground
+            font.family: root.bar.fontFamily
+            // Decorative condition emoji; intentionally larger than the
+            // Style.font.* scale's displayLarge (28).
+            font.pixelSize: heroRow.compact ? 44 : 64
+          }
+
+          Item {
+            width: Math.max(0, heroLeft.width - heroIcon.width - heroLeft.spacing)
+            height: tempBig.height
+            anchors.verticalCenter: parent.verticalCenter
+
+            Text {
+              id: tempBig
+              anchors.left: parent.left
+              anchors.verticalCenter: parent.verticalCenter
+              // Hero temperature read-out; deliberately oversized, outside
+              // the Style.font.* scale.
+              text: root.reportTempNum || "—"
+              color: root.bar.foreground
+              font.family: root.bar.fontFamily
+              font.pixelSize: 56
+              font.bold: true
+              fontSizeMode: Text.HorizontalFit
+              minimumPixelSize: 22
+              width: Math.min(implicitWidth, Math.max(0, parent.width - unitText.width - Style.space(2)))
+            }
+            Text {
+              id: unitText
+              text: root.current ? root.tempUnit : ""
+              color: root.bar.foreground
+              font.family: root.bar.fontFamily
+              font.pixelSize: Style.font.display
+              anchors.left: tempBig.right
+              anchors.leftMargin: Style.space(2)
+              anchors.top: tempBig.top
+              anchors.topMargin: Style.space(10)
             }
           }
         }
