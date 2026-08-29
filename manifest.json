@@ -1,25 +1,19 @@
 {
   "schemaVersion": 1,
-  "id": "koka.weather",
-  "name": "Weather with Umbrella Alerts",
-  "version": "1.0.0",
-  "author": "Koka (koka.no)",
+  "id": "koka.umbrella",
+  "name": "Umbrella Countdown",
+  "version": "2.0.0",
+  "author": "koka.no",
   "license": "MIT",
-  "description": "Weather widget with umbrella alerts - shows ☔30m when rain expected soon, ☂️2h for later rain",
-  "kinds": [
-    "bar-widget"
-  ],
+  "description": "Counts down to rain: ☔30m when rain starts within 2 hours, 🌂2h for later today. Quiet when dry.",
+  "kinds": ["bar-widget"],
   "entryPoints": {
     "barWidget": "BarWidget.qml"
   },
   "barWidget": {
-    "displayName": "Weather with Umbrella Alerts",
-    "description": "Weather with smart rain alerts",
+    "displayName": "Umbrella Countdown",
+    "description": "Countdown to the next rain",
     "category": "Info",
-    "allowMultiple": false,
-    "settingsForm": "weatherSettings"
-  },
-  "omarchy": {
-    "clonedFrom": "omarchy.weather"
+    "allowMultiple": false
   }
 }

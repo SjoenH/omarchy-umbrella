@@ -1,72 +1,72 @@
-# koka.weather - Weather with Umbrella Alerts
+# koka.umbrella — Umbrella Countdown
 
-A customized Omarchy weather widget that adds smart umbrella alerts to help you plan your day.
+A single-purpose Omarchy bar widget that counts down to the next rain. No
+temperatures, no forecasts, no weather dashboard — just the one question:
+**do I need an umbrella today?**
 
-**Plugin ID:** `koka.weather`  
-**Author:** Koka ([koka.no](https://koka.no))
+**Plugin ID:** `koka.umbrella`
+**Author:** koka.no ([koka.no](https://koka.no))
 
-## Features
+## Bar states
 
-- **Smart Umbrella Alerts**
-  - ☔ Shows when rain is expected within the next 90 minutes (with minutes countdown)
-  - ☂️ Shows when rain is expected later today (with hours countdown)
-- Full weather information with detailed forecast panel
-- Location auto-detection or manual configuration
-- Temperature, humidity, wind speed, and feels-like temperature
-- 4-day weather forecast
-- Auto-refresh with configurable interval
-- Click to view detailed panel
-- Right-click for notification
-- Middle-click to refresh
+| State | Meaning |
+|-------|---------|
+| `☀️` | No rain expected in the next 16 hours |
+| `☔ 30m` | Rain starting within 2 hours — minutes countdown |
+| `🌂 2h` | Rain expected later today — hours countdown |
+
+Rain counts when the hourly precipitation exceeds 0.1 mm within the next
+2 hours (soon) or 0.2 mm within 16 hours (later).
 
 ## Installation
 
-1. Clone this plugin to your Omarchy plugins directory:
-```bash
-cd ~/.config/omarchy/plugins
-git clone https://github.com/SjoenH/omarchy-weather-umbrella.git koka.weather
+```sh
+omarchy plugin add https://github.com/SjoenH/omarchy-umbrella.git --enable
 ```
 
-2. Add the plugin to your `~/.config/omarchy/shell.json`:
-```json
-{
-  "center": [
-    "koka.weather"
-  ]
-}
-```
+Then add `koka.umbrella` to your bar layout in `~/.config/omarchy/shell.json`
+and restart the shell:
 
-3. Restart Omarchy shell:
-```bash
+```sh
 omarchy restart shell
 ```
 
-## Configuration
+## Remove
 
-Click the weather widget to open the detailed panel where you can:
-- Set your location manually
-- Configure temperature units (Celsius/Fahrenheit)
-- Adjust auto-refresh interval
+```sh
+omarchy plugin remove koka.umbrella
+```
 
-## How It Works
+## Usage
 
-The plugin intelligently selects weather data sources based on your location:
-- **Norway**: Uses Yr.no (met.no) API for superior accuracy in Norwegian locations
-- **Rest of world**: Uses Open-Meteo API for global coverage
+- **Left-click** — panel with the rain timeline (start–end and mm of every
+  rain window in the next 16 hours) and the location setting
+- **Right-click** — notification with the current rain verdict
+- **Middle-click** — force a refresh
 
-The plugin fetches:
-- Current weather conditions
-- Hourly precipitation forecasts (for umbrella alerts)
-- Daily weather forecasts
+Location is read from `omarchy-weather-location` (shared with the stock
+weather tooling). Without a configured location the widget falls back to an
+approximate IP-geolocated position. Weather data: [Open-Meteo](https://open-meteo.com),
+hourly precipitation, no API key.
 
-Umbrella logic:
-- **☔ + minutes (urgent)**: Rain expected within 2 hours, shows minutes until rain starts
-- **☂️ + hours (reminder)**: Rain expected later (within 16 hours), shows hours until rain starts
-- Precipitation threshold: >0.1mm for soon, >0.2mm for later
+Auto-refresh defaults to 15 minutes; set `"refreshMinutes"` on the widget's
+entry in `~/.config/omarchy/shell.json` to change it.
 
-## Credits
+## Development
 
-Based on the official `omarchy.weather` plugin, enhanced with umbrella alert functionality.
+```sh
+# Pure logic tests (rain windows, thresholds, labels)
+qmltestrunner -input BarWidget.spec.qml
+
+# Lint
+OMARCHY_PATH=/usr/share/omarchy qmllint -I /usr/share/omarchy/shell *.qml
+```
+
+## History
+
+This started as `koka.weather`, a fork of the official `omarchy.weather`
+plugin with umbrella alerts bolted on. v2.0.0 dropped the whole weather
+picture to focus on the one job it was actually doing.
 
 ## License
 

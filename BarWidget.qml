@@ -4,7 +4,7 @@ import qs.Ui
 
 BarWidget {
   id: root
-  moduleName: "koka.weather"
+  moduleName: "koka.umbrella"
 
   function injectPanel() {
     var target = panelLoader.item
@@ -25,8 +25,7 @@ BarWidget {
 
   // Shape contract for shell.summon/hide/toggle routing (Bar.findPanelWidget
   // requires open/close/opened on the bar-widget root). Open maps to the
-  // panel's hotkey path so summoning suppresses the center hover reveal,
-  // matching what the old per-plugin IpcHandler did.
+  // panel's hotkey path so summoning suppresses the center hover reveal.
   readonly property bool opened: panelLoader.item ? panelLoader.item.opened === true : false
 
   function open() {
@@ -46,7 +45,8 @@ BarWidget {
     if (panelLoader.item) panelLoader.item.closeForPopoutSwitch()
   }
 
-  visible: panelLoader.item && panelLoader.item.label !== ""
+  // Always visible: a dry bar shows the quiet sun glyph, incoming rain swaps
+  // it for the countdown.
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
 
@@ -68,14 +68,16 @@ BarWidget {
     id: button
     anchors.fill: parent
     bar: root.bar
-    text: panelLoader.item ? panelLoader.item.label : ""
+    text: panelLoader.item ? panelLoader.item.barText : ""
     slotSize: Style.bar.statusSlot
     // Tooltip suppressed because the panel is the detail view.
     tooltipText: ""
 
     onPressed: function(b) {
       if (!root.bar) return
-      if (b === Qt.RightButton) root.bar.run("omarchy-notification-send \"$(omarchy-weather-status)\"")
+      if (b === Qt.RightButton) {
+        if (panelLoader.item && panelLoader.item.notifyUmbrella) panelLoader.item.notifyUmbrella()
+      }
       else if (b === Qt.MiddleButton) root.refresh()
       else root.togglePanel()
     }
