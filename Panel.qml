@@ -78,8 +78,11 @@ Panel {
   property bool fetchedOnce: false
   property int forecastRetries: 0
 
-  // Bar text: quiet sun while dry, countdown as soon as rain matters.
+  // Bar text: quiet sun while dry, countdown as soon as rain matters. An
+  // ellipsis until the first verdict lands, so the bar never lies about
+  // data it doesn't have yet.
   readonly property string barText: {
+    if (!root.fetchedOnce) return "…"
     var label = Model.barLabel(root.rain)
     return label !== "" ? label : "☀️"
   }
@@ -305,7 +308,7 @@ Panel {
   // failure just leaves the previous position (or none) in place.
   Process {
     id: ipGeoProc
-    command: ["curl", "-fsS", "--max-time", "5", "https://ipapi.co/json/"]
+    command: ["curl", "-fsS", "--max-time", "5", "https://ipwho.is/"]
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
