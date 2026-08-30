@@ -429,6 +429,7 @@ Panel {
             spacing: Style.space(8)
 
             Text {
+                textFormat: Text.PlainText
               text: "RAIN"
               color: Qt.darker(root.barForeground, 1.5)
               font.family: root.fontFamily
@@ -438,6 +439,7 @@ Panel {
             }
 
             Text {
+                textFormat: Text.PlainText
               width: parent.width
               text: root.rainStatusLine
               color: root.barForeground
@@ -460,6 +462,7 @@ Panel {
                   height: Style.space(22)
 
                   Text {
+                      textFormat: Text.PlainText
                     anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
                     text: "  " + Qt.formatTime(windowRow.modelData.start, "HH:mm") + " – " + Qt.formatTime(windowRow.modelData.end, "HH:mm")
@@ -469,6 +472,7 @@ Panel {
                   }
 
                   Text {
+                      textFormat: Text.PlainText
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
                     text: windowRow.modelData.mm + " mm"
@@ -487,6 +491,7 @@ Panel {
             spacing: Style.space(8)
 
             Text {
+                textFormat: Text.PlainText
               text: "LOCATION"
               color: Qt.darker(root.barForeground, 1.5)
               font.family: root.fontFamily
@@ -507,6 +512,7 @@ Panel {
               }
 
               Text {
+                  textFormat: Text.PlainText
                 text: ""  // nf-fa-map_marker
                 color: Qt.darker(root.barForeground, 1.4)
                 font.family: root.fontFamily
@@ -515,6 +521,7 @@ Panel {
               }
 
               Text {
+                  textFormat: Text.PlainText
                 text: root.locationName !== "" ? root.locationName : "Set location"
                 color: Qt.darker(root.barForeground, 1.4)
                 font.family: root.fontFamily
@@ -524,6 +531,7 @@ Panel {
               }
 
               Text {
+                  textFormat: Text.PlainText
                 visible: root.usingIpGeo
                 text: "· approximate"
                 color: Qt.darker(root.barForeground, 1.8)
@@ -574,6 +582,7 @@ Panel {
                 color: !root.savingLocation && clearLocationArea.containsMouse ? Style.hoverFillFor(root.barForeground, Color.accent) : "transparent"
 
                 Text {
+                    textFormat: Text.PlainText
                   anchors.centerIn: parent
                   text: root.savingLocation ? "󰦖" : "✕"
                   font.family: root.fontFamily
@@ -626,6 +635,7 @@ Panel {
                     spacing: 0
 
                     Text {
+                        textFormat: Text.PlainText
                       text: suggestionRow.modelData.name
                       color: root.barForeground
                       font.family: root.fontFamily
@@ -633,6 +643,7 @@ Panel {
                     }
 
                     Text {
+                        textFormat: Text.PlainText
                       visible: suggestionRow.modelData.description !== ""
                       text: suggestionRow.modelData.description
                       color: Qt.darker(root.barForeground, 1.6)
