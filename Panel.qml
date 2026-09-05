@@ -48,6 +48,27 @@ Panel {
     // "radar" with no live nowcast falls back to the umbrella label.
     readonly property string barMode: String(setting("barMode", "umbrella")) === "radar" ? "radar" : "umbrella"
     readonly property bool radarInBar: barMode === "radar" && nowcastSteps !== null
+    // Hover text for the bar radar: verdict plus what the next 90 minutes
+    // look like at peak.
+    readonly property string radarTooltip: {
+        var peak = 0;
+        var peakMinutes = -1;
+        var now = new Date();
+        for (var i = 0; i < nowcastSeries.length; i++) {
+            if (nowcastSeries[i].rate > peak) {
+                peak = nowcastSeries[i].rate;
+                peakMinutes = Math.max(0, Math.round((nowcastSeries[i].date - now) / 60000));
+            }
+        }
+        if (peak <= Model.NOWCAST_THRESHOLD)
+            return "☀️ Dry for the next 90 minutes (radar)";
+
+        if (root.rain.state === "now")
+            return "☔ Raining now · " + peak.toFixed(1) + " mm/h peak within 90 min";
+
+        var when = peakMinutes === 0 ? "now" : "in " + peakMinutes + " min";
+        return "☔ Rain " + when + " · " + peak.toFixed(1) + " mm/h peak within 90 min";
+    }
     // Bar text: quiet sun while dry, countdown as soon as rain matters. An
     // ellipsis until the first verdict lands, so the bar never lies about
     // data it doesn't have yet.

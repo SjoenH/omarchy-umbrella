@@ -130,6 +130,9 @@ BarWidget {
         // Fixed intensity scale (like Yr's nowcast chart): 1.5 mm/h fills the
         // height, so drizzle reads as a low bar instead of a dramatic spike.
         readonly property real scaleRate: 1.5
+        // Bar tooltip plumbing — the bar checks tooltipHovered on the target.
+        readonly property string tooltipText: panelLoader.item ? panelLoader.item.radarTooltip : ""
+        readonly property bool tooltipHovered: chartHover.containsMouse
         property var registeredBar: null
 
         function triggerPress(b) {
@@ -177,6 +180,26 @@ BarWidget {
 
             }
 
+        }
+
+        MouseArea {
+            id: chartHover
+
+            anchors.fill: parent
+            // Hover-only: presses are forwarded to the registered target by
+            // the bar's slot-wide pointer area.
+            acceptedButtons: Qt.NoButton
+            hoverEnabled: true
+            onEntered: {
+                if (root.bar)
+                    root.bar.showTooltip(radarChart, radarChart.tooltipText);
+
+            }
+            onExited: {
+                if (root.bar)
+                    root.bar.hideTooltip(radarChart);
+
+            }
         }
 
     }
