@@ -873,6 +873,75 @@ Panel {
 
                         }
 
+                        // ---- Bar display ------------------------------------------------
+                        Column {
+                            width: parent.width
+                            spacing: Style.space(8)
+
+                            Text {
+                                textFormat: Text.PlainText
+                                text: "BAR"
+                                color: Qt.darker(root.barForeground, 1.5)
+                                font.family: root.fontFamily
+                                font.pixelSize: Style.font.caption
+                                font.letterSpacing: 1
+                                font.bold: true
+                            }
+
+                            // Toggle: mini radar chart vs umbrella countdown in the bar.
+                            Rectangle {
+                                width: parent.width
+                                height: Style.space(30)
+                                radius: Style.cornerRadius
+                                color: barToggleArea.containsMouse ? Style.hoverFillFor(root.barForeground, Color.accent) : "transparent"
+
+                                Row {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: Style.space(8)
+                                    anchors.right: parent.right
+                                    anchors.rightMargin: Style.space(8)
+                                    spacing: Style.space(6)
+
+                                    Text {
+                                        textFormat: Text.PlainText
+                                        text: "Show radar in bar"
+                                        color: root.barForeground
+                                        font.family: root.fontFamily
+                                        font.pixelSize: Style.font.body
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+
+                                    Item {
+                                        width: Style.space(14)
+                                        height: Style.space(14)
+                                        anchors.verticalCenter: parent.verticalCenter
+
+                                        Rectangle {
+                                            anchors.fill: parent
+                                            radius: Math.min(4, Style.cornerRadius)
+                                            color: root.barMode === "radar" ? Color.accent : "transparent"
+                                            border.width: Math.max(1, Style.space(1))
+                                            border.color: root.barMode === "radar" ? Color.accent : Qt.darker(root.barForeground, 1.6)
+                                        }
+
+                                    }
+
+                                }
+
+                                MouseArea {
+                                    id: barToggleArea
+
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: root.setBarMode(root.barMode === "radar" ? "umbrella" : "radar")
+                                }
+
+                            }
+
+                        }
+
                     }
 
                 }
