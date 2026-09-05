@@ -5,6 +5,10 @@ import qs.Ui
 BarWidget {
     id: root
 
+    // Radar mode renders its own wide chart item; the icon button only handles
+    // the umbrella/radar-label modes.
+    readonly property bool radarInBar: panelLoader.item ? panelLoader.item.radarInBar : false
+    readonly property int radarBarWidth: Style.space(110)
     // Shape contract for shell.summon/hide/toggle routing (Bar.findPanelWidget
     // requires open/close/opened on the bar-widget root). Open maps to the
     // panel's hotkey path so summoning suppresses the center hover reveal.
@@ -63,10 +67,25 @@ BarWidget {
 
     }
 
+    function handlePress(b) {
+        if (!root.bar)
+            return ;
+
+        if (b === Qt.RightButton) {
+            if (panelLoader.item && panelLoader.item.notifyUmbrella)
+                panelLoader.item.notifyUmbrella();
+
+        } else if (b === Qt.MiddleButton) {
+            root.refresh();
+        } else {
+            root.togglePanel();
+        }
+    }
+
     moduleName: "koka.umbrella"
     // Always visible: a dry bar shows the quiet sun glyph, incoming rain swaps
     // it for the countdown.
-    implicitWidth: button.implicitWidth
+    implicitWidth: radarInBar ? radarBarWidth : button.implicitWidth
     implicitHeight: button.implicitHeight
     onBarChanged: injectPanel()
     onSettingsChanged: injectPanel()
@@ -87,64 +106,61 @@ BarWidget {
         id: button
 
         anchors.fill: parent
+        visible: !root.radarInBar
         bar: root.bar
         text: panelLoader.item ? panelLoader.item.barText : ""
         // Auto-size to the label instead of a fixed slot: the countdown text
         // ("☔ 45m") is wider than any square slot and would overlap neighbors.
-        // Radar mode uses a wide slot so the 90-minute chart is actually legible.
-        slotSize: panelLoader.item && panelLoader.item.radarInBar ? Style.space(110) : -1
-        // Radar mode: a Yr-style mini bar chart of the next 90 minutes replaces
-        // the umbrella glyph. Inline component so its bindings resolve here and
-        // can reach the panel's nowcast series.
-        iconComponent: panelLoader.item && panelLoader.item.radarInBar ? radarIcon : null
+        slotSize: -1
         // Tooltip suppressed because the panel is the detail view.
         tooltipText: ""
         onPressed: function(b) {
-            if (!root.bar)
-                return ;
+            root.handlePress(b);
+        }
+    }
 
-            if (b === Qt.RightButton) {
-                if (panelLoader.item && panelLoader.item.notifyUmbrella)
-                    panelLoader.item.notifyUmbrella();
+    // Yr-style mini radar chart, Yr-scaled: bars are sized against the window's
+    // peak rate (floor 0.5 mm/h) so light drizzle stays visible.
+    Item {
+        id: radarChart
 
-            } else if (b === Qt.MiddleButton) {
-                root.refresh();
-            } else {
-                root.togglePanel();
-            }
+        readonly property var series: panelLoader.item ? panelLoader.item.nowcastSeries : []
+        readonly property real maxRate: {
+            var max = 0.5;
+            for (var i = 0; i < series.length; i++) max = Math.max(max, Number(series[i].rate) || 0)
+            return max;
         }
 
-        Component {
-            id: radarIcon
+        anchors.fill: parent
+        visible: root.radarInBar
 
-            Item {
-                id: radarBar
+        Row {
+            anchors.fill: parent
 
-                readonly property var series: panelLoader.item ? panelLoader.item.nowcastSeries : []
+            Repeater {
+                model: radarChart.series
 
-                anchors.fill: parent
+                Rectangle {
+                    required property var modelData
+                    readonly property real rate: Math.max(0, Number(modelData.rate) || 0)
 
-                Repeater {
-                    model: radarBar.series
-
-                    Rectangle {
-                        required property var modelData
-                        required property int index
-                        readonly property real rate: Math.max(0, Number(modelData.rate) || 0)
-
-                        x: index * (radarBar.width / radarBar.series.length)
-                        width: Math.max(1, radarBar.width / radarBar.series.length - 0.5)
-                        anchors.bottom: parent.bottom
-                        height: Math.max(1, Math.min(1, rate / 2.5) * (radarBar.height - 1))
-                        radius: Math.min(1, width / 2)
-                        color: root.bar ? root.bar.foreground : Color.foreground
-                        opacity: 0.45 + 0.55 * Math.min(1, rate / 2.5)
-                    }
-
+                    width: parent.width / radarChart.series.length
+                    height: parent.height * (rate / radarChart.maxRate)
+                    anchors.bottom: parent.bottom
+                    color: root.bar ? root.bar.foreground : Color.foreground
+                    opacity: 0.45 + 0.55 * (rate / radarChart.maxRate)
                 }
 
             }
 
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
+            onPressed: function(mouse) {
+                root.handlePress(mouse.button);
+            }
         }
 
     }
