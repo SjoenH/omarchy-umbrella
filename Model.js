@@ -190,6 +190,33 @@ function describeRate(rate) {
     return "heavy rain"
 }
 
+// RainViewer Weather Maps API file → { base } for the sampler (host + latest
+// frame path). Note the frame path is a content hash, not the timestamp.
+// Null on anything unusable.
+function parseWeatherMaps(raw) {
+    try {
+        var data = JSON.parse(String(raw || "{}"))
+        var past = data && data.radar && data.radar.past
+        if (!data.host || !past || !past.length || !past[past.length - 1].path)
+            return null
+
+        return { base: String(data.host) + String(past[past.length - 1].path) }
+    } catch (e) {
+        return null
+    }
+}
+
+// Sampler stdout ("wet 1.9" / "dry") → a "now" verdict for the rain merge,
+// or null when dry so lower-priority sources decide. Global coverage, but
+// band-mapped from tile colors, so the number is an approximation.
+function parseRainViewerSample(raw) {
+    var m = String(raw || "").match(/^wet ([\d.]+)/)
+    if (!m)
+        return null
+
+    return { state: "now", minutesUntil: 0, mm: parseFloat(m[1]) }
+}
+
 function barLabel(rain) {
     if (!rain)
         return ""
@@ -310,6 +337,8 @@ if (typeof module !== "undefined") {
         parseNowcast: parseNowcast,
         nextRainNowcast: nextRainNowcast,
         describeRate: describeRate,
+        parseWeatherMaps: parseWeatherMaps,
+        parseRainViewerSample: parseRainViewerSample,
         rainWindows: rainWindows,
         barLabel: barLabel,
         parseLocationFile: parseLocationFile,

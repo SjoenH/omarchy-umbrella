@@ -56,6 +56,17 @@ Set `"barMode": "radar"` to show a Yr-style mini radar chart (next 90
 minutes) in the bar instead of the umbrella countdown. With no live radar
 data it falls back to the umbrella label.
 
+### Radar sources
+
+- **MET Norway nowcast/2.0** (Nordics + Baltics): 5-minute radar steps with
+  exact mm/h, powering `☔ Now`, the 90-minute chart, and hover readouts.
+- **RainViewer Weather Maps** (global fallback): samples the free global
+  radar mosaic at your location for the "is it raining right now" verdict
+  outside MET coverage. Requires `python3` (stdlib only). Intensity is
+  band-mapped from tile colors, so it is approximate; the 90-minute forecast
+  chart remains MET-only. Data © RainViewer, used under its free
+  personal-use API terms ([rainviewer.com](https://www.rainviewer.com/)).
+
 ## Development
 
 ```sh
