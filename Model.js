@@ -16,6 +16,57 @@ var SOON_HOURS = 2
 var LATER_HOURS = 16
 var SOON_THRESHOLD = 0.1
 var LATER_THRESHOLD = 0.2
+// Radar nowcast (MET nowcast/2.0): precipitation_rate in mm/h per 5-min
+// step. Low bar so light drizzle counts as raining; the source is observed,
+// not a grid forecast.
+var NOWCAST_THRESHOLD = 0.1
+
+// MET nowcast/2.0/complete response → sorted steps [{date, rate}] with rate
+// in mm/h. Null on anything unusable so the caller falls back to the hourly
+// forecast verdict.
+function parseNowcast(raw) {
+    try {
+        var data = JSON.parse(String(raw || "{}"))
+        var series = data && data.properties && data.properties.timeseries
+        if (!series || !series.length)
+            return null
+
+        var steps = []
+        for (var i = 0; i < series.length; i++) {
+            var entry = series[i]
+            var rate = entry && entry.data && entry.data.instant
+                && entry.data.instant.details
+                ? parseFloat(entry.data.instant.details.precipitation_rate) : NaN
+            var date = new Date(entry.time)
+            if (isNaN(date.getTime()) || isNaN(rate))
+                continue
+            steps.push({ date: date, rate: rate })
+        }
+        return steps.length ? steps : null
+    } catch (e) {
+        return null
+    }
+}
+
+// Radar verdict for the next 90 minutes. Returns null when the nowcast sees
+// no rain (the hourly verdict then decides), otherwise the same shape as
+// nextRain: the first radar step above threshold is rain "now", a later one
+// is "soon" with minutesUntil.
+function nextRainNowcast(steps, now) {
+    if (!steps || steps.length === 0)
+        return null
+
+    for (var i = 0; i < steps.length; i++) {
+        if (steps[i].rate > NOWCAST_THRESHOLD) {
+            return {
+                state: i === 0 ? "now" : "soon",
+                minutesUntil: i === 0 ? 0 : Math.max(0, Math.round((steps[i].date - now) / 60000)),
+                mm: steps[i].rate
+            }
+        }
+    }
+    return null
+}
 
 // Index of the hour bucket containing `now` (its start is <= now). Hourly
 // timestamps mark bucket starts, so the in-progress hour — where rain happening
@@ -244,7 +295,10 @@ if (typeof module !== "undefined") {
         LATER_HOURS: LATER_HOURS,
         SOON_THRESHOLD: SOON_THRESHOLD,
         LATER_THRESHOLD: LATER_THRESHOLD,
+        NOWCAST_THRESHOLD: NOWCAST_THRESHOLD,
         nextRain: nextRain,
+        parseNowcast: parseNowcast,
+        nextRainNowcast: nextRainNowcast,
         rainWindows: rainWindows,
         barLabel: barLabel,
         parseLocationFile: parseLocationFile,

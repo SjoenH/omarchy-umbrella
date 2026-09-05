@@ -129,6 +129,73 @@ TestCase {
         compare(windows[0].end.getTime() - windows[0].start.getTime(), 3.6e+06);
     }
 
+    function test_parseNowcast_and_radar_verdict() {
+        var raw = JSON.stringify({
+            "properties": {
+                "timeseries": [{
+                    "time": "2026-08-29T12:00:00Z",
+                    "data": {
+                        "instant": {
+                            "details": {
+                                "precipitation_rate": 0
+                            }
+                        }
+                    }
+                }, {
+                    "time": "2026-08-29T12:05:00Z",
+                    "data": {
+                        "instant": {
+                            "details": {
+                                "precipitation_rate": 0.4
+                            }
+                        }
+                    }
+                }, {
+                    "time": "2026-08-29T12:10:00Z",
+                    "data": {
+                        "instant": {
+                            "details": {
+                                "precipitation_rate": 0
+                            }
+                        }
+                    }
+                }]
+            }
+        });
+        var steps = Model.parseNowcast(raw);
+        compare(steps.length, 3);
+        compare(Model.parseNowcast("not json"), null);
+        var base = new Date(2026, 7, 29, 14, 0, 0);
+        // First step wet → raining now.
+        var wet = [{
+            "date": new Date(base.getTime()),
+            "rate": 0.4
+        }, {
+            "date": new Date(base.getTime() + 300000),
+            "rate": 0
+        }];
+        var nowRain = Model.nextRainNowcast(wet, base);
+        compare(nowRain.state, "now");
+        compare(nowRain.mm, 0.4);
+        // Rain starting in 5 minutes → soon with countdown.
+        var soon = [{
+            "date": new Date(base.getTime()),
+            "rate": 0
+        }, {
+            "date": new Date(base.getTime() + 300000),
+            "rate": 0.4
+        }];
+        var soonRain = Model.nextRainNowcast(soon, base);
+        compare(soonRain.state, "soon");
+        compare(soonRain.minutesUntil, 5);
+        // Dry radar → null so the hourly verdict decides.
+        compare(Model.nextRainNowcast([{
+            "date": base,
+            "rate": 0
+        }], base), null);
+        compare(Model.nextRainNowcast(null, base), null);
+    }
+
     function test_parseIpGeo() {
         var good = Model.parseIpGeo('{"latitude": 59.91, "longitude": 10.75, "city": "Oslo"}');
         compare(good.latitude, 59.91);

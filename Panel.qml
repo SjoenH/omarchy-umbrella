@@ -25,11 +25,23 @@ Panel {
     // One source (Open-Meteo hourly precipitation), one fetch, one state
     // object. Kept on failure so the bar keeps showing the last verdict.
     property var forecast: null
-    property var rain: ({
+    property var hourlyRain: ({
         "state": "none",
         "minutesUntil": -1,
         "mm": 0
     })
+    // Radar nowcast steps from MET nowcast/2.0 (next ~90 min). Null while
+    // unavailable; the verdict then falls back to the hourly forecast.
+    property var nowcastSteps: null
+    // Radar verdict wins while the nowcast is live — it observes rain that
+    // hourly grid data misses — and defers to the hourly forecast otherwise.
+    readonly property var rain: {
+        var nowcast = Model.nextRainNowcast(nowcastSteps, new Date());
+        if (nowcast)
+            return nowcast;
+
+        return hourlyRain;
+    }
     property bool fetchedOnce: false
     property int forecastRetries: 0
     // Bar text: quiet sun while dry, countdown as soon as rain matters. An
@@ -48,6 +60,24 @@ Panel {
             return [];
 
         return Model.rainWindows(hourly.precipitation, hourly.time, new Date(), Model.LATER_HOURS, Model.SOON_THRESHOLD);
+    }
+    // Radar steps inside the nowcast window (now → +90 min), for the chart.
+    readonly property var nowcastSeries: {
+        var steps = nowcastSteps;
+        if (!steps)
+            return [];
+
+        var now = new Date();
+        var from = now.getTime() - 150000;
+        var to = now.getTime() + 90 * 60000;
+        var out = [];
+        for (var i = 0; i < steps.length; i++) {
+            var t = steps[i].date.getTime();
+            if (t >= from && t <= to)
+                out.push(steps[i]);
+
+        }
+        return out;
     }
     readonly property string rainStatusLine: {
         if (!root.fetchedOnce)
@@ -230,20 +260,32 @@ Panel {
 
         forecastProc.command = ["curl", "-fsS", "--max-time", "6", "https://api.open-meteo.com/v1/forecast" + "?latitude=" + encodeURIComponent(String(lat)) + "&longitude=" + encodeURIComponent(String(lon)) + "&hourly=precipitation" + "&forecast_days=2" + "&timezone=auto"];
         forecastProc.running = true;
+        fetchNowcast(lat, lon);
     }
 
     function applyForecast(parsed) {
         forecast = parsed;
         var hourly = parsed && parsed.hourly;
         if (hourly && hourly.precipitation && hourly.time)
-            rain = Model.nextRain(hourly.precipitation, hourly.time, new Date());
+            hourlyRain = Model.nextRain(hourly.precipitation, hourly.time, new Date());
         else
-            rain = {
+            hourlyRain = {
             "state": "none",
             "minutesUntil": -1,
             "mm": 0
         };
         fetchedOnce = true;
+    }
+
+    // Radar nowcast, the same source Yr's 90-minute graph uses. Only covers
+    // Scandinavia and nearby; a failed or empty response just leaves the
+    // hourly verdict in charge.
+    function fetchNowcast(lat, lon) {
+        if (isNaN(lat) || isNaN(lon))
+            return ;
+
+        nowcastProc.command = ["curl", "-fsS", "--max-time", "6", "-H", "User-Agent: koka-umbrella/2.0 github.com/SjoenH/omarchy-umbrella", "https://api.met.no/weatherapi/nowcast/2.0/complete" + "?lat=" + encodeURIComponent(String(lat)) + "&lon=" + encodeURIComponent(String(lon))];
+        nowcastProc.running = true;
     }
 
     // A dropped response (e.g. waking before the network is back) retries a
@@ -369,6 +411,19 @@ Panel {
     }
 
     Process {
+        id: nowcastProc
+
+        stdout: StdioCollector {
+            waitForEnd: true
+            onStreamFinished: {
+                var raw = String(text || "").trim();
+                root.nowcastSteps = raw ? Model.parseNowcast(raw) : null;
+            }
+        }
+
+    }
+
+    Process {
         id: locationSaveProc
 
         onExited: function(exitCode) {
@@ -483,6 +538,75 @@ Panel {
                             font.family: root.fontFamily
                             font.pixelSize: Style.font.subtitle
                             elide: Text.ElideRight
+                        }
+
+                        // ---- Radar nowcast (Yr-style 90-minute bars) ------
+                        Column {
+                            visible: root.nowcastSeries.length > 0
+                            width: parent.width
+                            spacing: Style.space(2)
+
+                            Item {
+                                id: radarChart
+
+                                width: parent.width
+                                height: Style.space(36)
+
+                                Repeater {
+                                    model: root.nowcastSeries
+
+                                    Rectangle {
+                                        required property var modelData
+                                        required property int index
+                                        readonly property real rate: Math.max(0, Number(modelData.rate) || 0)
+
+                                        x: index * (radarChart.width / root.nowcastSeries.length)
+                                        width: radarChart.width / root.nowcastSeries.length - 1
+                                        anchors.bottom: parent.bottom
+                                        height: Math.min(1, rate / 2.5) * (radarChart.height - 2) + 1
+                                        radius: Math.min(2, width / 2)
+                                        // CONVENTION-EXCEPTION: rain intensity color, echoing Yr's chart
+                                        color: Color.accent
+                                        opacity: 0.4 + 0.6 * Math.min(1, rate / 2.5)
+                                    }
+
+                                }
+
+                            }
+
+                            Item {
+                                width: parent.width
+                                height: Style.font.caption * 1.4
+
+                                Text {
+                                    textFormat: Text.PlainText
+                                    anchors.left: parent.left
+                                    text: "Now"
+                                    color: Qt.darker(root.barForeground, 1.6)
+                                    font.family: root.fontFamily
+                                    font.pixelSize: Style.font.caption
+                                }
+
+                                Text {
+                                    textFormat: Text.PlainText
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    text: "45"
+                                    color: Qt.darker(root.barForeground, 1.6)
+                                    font.family: root.fontFamily
+                                    font.pixelSize: Style.font.caption
+                                }
+
+                                Text {
+                                    textFormat: Text.PlainText
+                                    anchors.right: parent.right
+                                    text: "90 min"
+                                    color: Qt.darker(root.barForeground, 1.6)
+                                    font.family: root.fontFamily
+                                    font.pixelSize: Style.font.caption
+                                }
+
+                            }
+
                         }
 
                         Column {
