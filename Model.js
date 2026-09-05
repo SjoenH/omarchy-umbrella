@@ -198,7 +198,8 @@ function inNowcastRegion(lat, lon) {
 
 // WMO weather interpretation codes → a compact emoji for the quiet (dry) bar.
 function wmoEmoji(code) {
-    code = parseInt(code, 10) || 0
+    code = parseInt(code, 10)
+    if (isNaN(code)) return "🌍"
     if (code === 0) return "☀️"
     if (code === 1) return "🌤️"
     if (code === 2) return "⛅"
