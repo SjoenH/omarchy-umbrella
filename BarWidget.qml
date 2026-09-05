@@ -127,11 +127,9 @@ BarWidget {
         id: radarChart
 
         readonly property var series: panelLoader.item ? panelLoader.item.nowcastSeries : []
-        readonly property real maxRate: {
-            var max = 0.5;
-            for (var i = 0; i < series.length; i++) max = Math.max(max, Number(series[i].rate) || 0)
-            return max;
-        }
+        // Fixed intensity scale (like Yr's nowcast chart): 1.5 mm/h fills the
+        // height, so drizzle reads as a low bar instead of a dramatic spike.
+        readonly property real scaleRate: 1.5
         property var registeredBar: null
 
         function triggerPress(b) {
@@ -150,9 +148,9 @@ BarWidget {
 
         Component.onCompleted: syncClickRegistration()
         Component.onDestruction: {
-            if (registeredBar && registeredBar.unregisterClickTarget) {
+            if (registeredBar && registeredBar.unregisterClickTarget)
                 registeredBar.unregisterClickTarget(this);
-            }
+
         }
         onVisibleChanged: syncClickRegistration()
         anchors.fill: parent
@@ -169,10 +167,12 @@ BarWidget {
                     readonly property real rate: Math.max(0, Number(modelData.rate) || 0)
 
                     width: parent.width / radarChart.series.length
-                    height: parent.height * (rate / radarChart.maxRate)
+                    // Wet steps get a small visible baseline so a trace of
+                    // rain doesn't vanish; intensity scales from there.
+                    height: rate > 0.05 ? Math.max(2, parent.height * Math.min(1, rate / radarChart.scaleRate)) : 0
                     anchors.bottom: parent.bottom
                     color: root.bar ? root.bar.foreground : Color.foreground
-                    opacity: 0.45 + 0.55 * (rate / radarChart.maxRate)
+                    opacity: 0.45 + 0.55 * Math.min(1, rate / radarChart.scaleRate)
                 }
 
             }
