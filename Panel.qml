@@ -654,6 +654,9 @@ Panel {
                                                 return "";
 
                                             var step = root.nowcastSeries[radarChart.hoverIndex];
+                                            if (step.rate <= Model.NOWCAST_THRESHOLD)
+                                                return Qt.formatTime(step.date, "HH:mm") + " · dry";
+
                                             return Qt.formatTime(step.date, "HH:mm") + " · " + Model.describeRate(step.rate) + " · " + (Math.round(step.rate * 10) / 10) + " mm/h";
                                         }
                                         color: root.barForeground
