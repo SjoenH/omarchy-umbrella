@@ -52,6 +52,10 @@ hourly precipitation, no API key.
 Auto-refresh defaults to 15 minutes; set `"refreshMinutes"` on the widget's
 entry in `~/.config/omarchy/shell.json` to change it.
 
+Set `"barMode": "radar"` to show a Yr-style mini radar chart (next 90
+minutes) in the bar instead of the umbrella countdown. With no live radar
+data it falls back to the umbrella label.
+
 ## Development
 
 ```sh

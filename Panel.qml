@@ -44,10 +44,19 @@ Panel {
     }
     property bool fetchedOnce: false
     property int forecastRetries: 0
+    // Bar display mode: the umbrella countdown or a mini radar chart.
+    // "radar" with no live nowcast falls back to the umbrella label.
+    readonly property string barMode: String(setting("barMode", "umbrella")) === "radar" ? "radar" : "umbrella"
+    readonly property bool radarInBar: barMode === "radar" && nowcastSteps !== null
     // Bar text: quiet sun while dry, countdown as soon as rain matters. An
     // ellipsis until the first verdict lands, so the bar never lies about
     // data it doesn't have yet.
     readonly property string barText: {
+        // Radar mode renders the iconComponent in the bar instead; empty text
+        // hides the glyph. Missing nowcast data falls back to the umbrella.
+        if (root.radarInBar && root.nowcastSeries.length > 0)
+            return "";
+
         if (!root.fetchedOnce)
             return "…";
 
