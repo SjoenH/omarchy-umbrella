@@ -347,6 +347,21 @@ Panel {
         geocodeProc.running = true;
     }
 
+    // Bar display mode switch. Persists via the shell's inline settings
+    // update (same path the catjam widget uses for its GIF choice).
+    function setBarMode(mode) {
+        var entry = {
+        };
+        for (var key in root.settings) if (key !== "id") {
+            entry[key] = root.settings[key];
+        }
+        entry["barMode"] = mode;
+        root.settings = entry;
+        if (root.bar && root.bar.shell && typeof root.bar.shell.updateEntryInline === "function")
+            root.bar.shell.updateEntryInline(root.moduleName, entry);
+
+    }
+
     moduleName: "koka.umbrella"
     manageIpc: false
     onConfiguredLocationStateChanged: Qt.callLater(root.refresh)
@@ -492,7 +507,7 @@ Panel {
         owner: root.barIdentity
         bar: root.bar
         open: root.opened
-        centerOnBar: true
+        centerOnBar: false
         focusTarget: keyCatcher
         contentWidth: panel.fittedContentWidth(Style.space(360))
         contentHeight: panel.fittedContentHeight(umbrellaColumn.implicitHeight)

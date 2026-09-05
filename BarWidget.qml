@@ -89,7 +89,10 @@ BarWidget {
         anchors.fill: parent
         bar: root.bar
         text: panelLoader.item ? panelLoader.item.barText : ""
-        slotSize: Style.bar.statusSlot
+        // Auto-size to the label instead of a fixed slot: the countdown text
+        // ("☔ 45m") is wider than any square slot and would overlap neighbors.
+        // Radar mode uses the square slot for its mini chart.
+        slotSize: panelLoader.item && panelLoader.item.radarInBar ? Style.bar.statusSlot : -1
         // Radar mode: a Yr-style mini bar chart of the next 90 minutes replaces
         // the umbrella glyph. Inline component so its bindings resolve here and
         // can reach the panel's nowcast series.
