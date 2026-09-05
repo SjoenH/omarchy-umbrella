@@ -17,19 +17,33 @@ var LATER_HOURS = 16
 var SOON_THRESHOLD = 0.1
 var LATER_THRESHOLD = 0.2
 
+// Index of the hour bucket containing `now` (its start is <= now). Hourly
+// timestamps mark bucket starts, so the in-progress hour — where rain happening
+// right now lives — has a start in the past and must not be skipped.
 function currentIndex(times, now) {
+    var found = -1
     for (var i = 0; i < times.length; i++) {
         var t = new Date(times[i])
-        if (!isNaN(t.getTime()) && t >= now)
-            return i
+        if (!isNaN(t.getTime()) && t <= now)
+            found = i
+        else if (found !== -1)
+            break
     }
-    return -1
+    // `now` before the first bucket: treat the first bucket as upcoming so
+    // future rain in a short forecast array is still seen.
+    if (found === -1 && times.length > 0) {
+        var first = new Date(times[0])
+        if (!isNaN(first.getTime()) && first > now)
+            return 0
+    }
+    return found
 }
 
 // The next rain that matters. Returns
-//   { state: "soon"|"later"|"none", minutesUntil: int, mm: number }
-// with minutesUntil -1 for "none". "soon" wins over "later" whenever both
-// windows match, matching the original widget's precedence.
+//   { state: "now"|"soon"|"later"|"none", minutesUntil: int, mm: number }
+// with minutesUntil -1 for "none". "now" means the current hour bucket is
+// already raining. "soon" wins over "later" whenever both windows match,
+// matching the original widget's precedence.
 function nextRain(precipitation, times, now) {
     var none = { state: "none", minutesUntil: -1, mm: 0 }
     if (!precipitation || !times || precipitation.length === 0 || times.length === 0)
@@ -39,7 +53,11 @@ function nextRain(precipitation, times, now) {
     if (cur === -1)
         return none
 
-    for (var j = cur; j < Math.min(cur + SOON_HOURS, precipitation.length); j++) {
+    var current = precipitation[cur]
+    if (current !== undefined && current !== null && current > SOON_THRESHOLD)
+        return { state: "now", minutesUntil: 0, mm: current }
+
+    for (var j = cur + 1; j < Math.min(cur + 1 + SOON_HOURS, precipitation.length); j++) {
         if (precipitation[j] !== undefined && precipitation[j] !== null && precipitation[j] > SOON_THRESHOLD) {
             var soonTime = new Date(times[j])
             return {
@@ -114,6 +132,8 @@ function rainWindows(precipitation, times, now, hours, threshold) {
 function barLabel(rain) {
     if (!rain)
         return ""
+    if (rain.state === "now")
+        return "☔ Now"
     if (rain.state === "soon")
         return rain.minutesUntil >= 0 ? "☔ " + rain.minutesUntil + "m" : "☔"
     if (rain.state === "later") {

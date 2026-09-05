@@ -53,6 +53,9 @@ Panel {
         if (!root.fetchedOnce)
             return "Waiting for forecast…";
 
+        if (root.rain.state === "now")
+            return "☔ Raining now (" + root.rain.mm + " mm/h)";
+
         if (root.rain.state === "soon")
             return "☔ Rain starting in " + Math.max(0, root.rain.minutesUntil) + " min";
 
@@ -78,16 +81,6 @@ Panel {
     // Auto-refresh interval in minutes; clamped to a sane minimum.
     readonly property int refreshMinutes: Math.max(1, parseInt(setting("refreshMinutes", 15), 10) || 15)
     property FileView locationFile
-
-    locationFile: FileView {
-        path: Quickshell.env("HOME") + "/.local/state/omarchy/settings/weather.json"
-        watchChanges: true
-        printErrors: false
-        onFileChanged: reload()
-        onLoaded: root.configuredLocationState = Model.parseLocationFile(text())
-        onLoadFailed: root.configuredLocationState = Model.parseLocationFile("")
-    }
-
     // ---- Location editing. Clicking the location label swaps it for a search
     //      field; picking a geocoded suggestion persists name + coordinates via
     //      omarchy-weather-location. An empty commit returns to auto.
@@ -266,7 +259,9 @@ Panel {
     // ---- Right-click notification -------------------------------------------
     function notifyUmbrella() {
         var text = "";
-        if (root.rain.state === "soon") {
+        if (root.rain.state === "now") {
+            text = "☔ Raining now (" + root.rain.mm + " mm/h)";
+        } else if (root.rain.state === "soon") {
             text = "☔ Rain in " + Math.max(0, root.rain.minutesUntil) + " min (" + root.rain.mm + " mm/h)";
         } else if (root.rain.state === "later") {
             var t = new Date(Date.now() + root.rain.minutesUntil * 60000);
@@ -304,6 +299,7 @@ Panel {
     moduleName: "koka.umbrella"
     manageIpc: false
     onConfiguredLocationStateChanged: Qt.callLater(root.refresh)
+
     // The first read can race shell startup (observed sporadically), leaving a
     // stored location unhonored until the next file write. One delayed reload
     // self-corrects; if the first read was fine it's a no-op, since identical
@@ -603,9 +599,9 @@ Panel {
                                 foreground: root.barForeground
                                 font.family: root.fontFamily
                                 onTextChanged: {
-                                    if (root.editingLocation && !root.savingLocation) {
+                                    if (root.editingLocation && !root.savingLocation)
                                         geocodeDebounce.restart();
-                                    }
+
                                 }
                                 Keys.onPressed: function(event) {
                                     if (event.key === Qt.Key_Escape) {
@@ -737,6 +733,15 @@ Panel {
 
         }
 
+    }
+
+    locationFile: FileView {
+        path: Quickshell.env("HOME") + "/.local/state/omarchy/settings/weather.json"
+        watchChanges: true
+        printErrors: false
+        onFileChanged: reload()
+        onLoaded: root.configuredLocationState = Model.parseLocationFile(text())
+        onLoadFailed: root.configuredLocationState = Model.parseLocationFile("")
     }
 
 }
