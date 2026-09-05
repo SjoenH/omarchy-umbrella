@@ -17,9 +17,10 @@ var LATER_HOURS = 16
 var SOON_THRESHOLD = 0.1
 var LATER_THRESHOLD = 0.2
 // Radar nowcast (MET nowcast/2.0): precipitation_rate in mm/h per 5-min
-// step. Low bar so light drizzle counts as raining; the source is observed,
-// not a grid forecast.
-var NOWCAST_THRESHOLD = 0.1
+// step. Radar sees drizzle aloft at 0.1-0.3 mm/h that mostly never reaches
+// the ground, so the bar stays quiet below 0.3; above that it's rain you'd
+// actually notice.
+var NOWCAST_THRESHOLD = 0.3
 
 // MET nowcast/2.0/complete response → sorted steps [{date, rate}] with rate
 // in mm/h. Null on anything unusable so the caller falls back to the hourly
