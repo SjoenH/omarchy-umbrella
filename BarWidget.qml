@@ -120,7 +120,9 @@ BarWidget {
     }
 
     // Yr-style mini radar chart, Yr-scaled: bars are sized against the window's
-    // peak rate (floor 0.5 mm/h) so light drizzle stays visible.
+    // peak rate (floor 0.5 mm/h) so light drizzle stays visible. Registered as
+    // a bar click target — the bar's slot-wide pointer area forwards presses
+    // only to registered targets, so a plain MouseArea would never fire.
     Item {
         id: radarChart
 
@@ -130,7 +132,29 @@ BarWidget {
             for (var i = 0; i < series.length; i++) max = Math.max(max, Number(series[i].rate) || 0)
             return max;
         }
+        property var registeredBar: null
 
+        function triggerPress(b) {
+            root.handlePress(b);
+        }
+
+        function syncClickRegistration() {
+            if (registeredBar && registeredBar.unregisterClickTarget)
+                registeredBar.unregisterClickTarget(this);
+
+            registeredBar = root.bar;
+            if (registeredBar && registeredBar.registerClickTarget)
+                registeredBar.registerClickTarget(this);
+
+        }
+
+        Component.onCompleted: syncClickRegistration()
+        Component.onDestruction: {
+            if (registeredBar && registeredBar.unregisterClickTarget) {
+                registeredBar.unregisterClickTarget(this);
+            }
+        }
+        onVisibleChanged: syncClickRegistration()
         anchors.fill: parent
         visible: root.radarInBar
 
@@ -153,14 +177,6 @@ BarWidget {
 
             }
 
-        }
-
-        MouseArea {
-            anchors.fill: parent
-            acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
-            onPressed: function(mouse) {
-                root.handlePress(mouse.button);
-            }
         }
 
     }
