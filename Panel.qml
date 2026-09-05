@@ -594,6 +594,10 @@ Panel {
                             Item {
                                 id: radarChart
 
+                                // Fixed intensity scale, matching the bar chart.
+                                readonly property real scaleRate: 1.5
+                                property int hoverIndex: -1
+
                                 width: parent.width
                                 height: Style.space(36)
 
@@ -608,13 +612,56 @@ Panel {
                                         x: index * (radarChart.width / root.nowcastSeries.length)
                                         width: radarChart.width / root.nowcastSeries.length - 1
                                         anchors.bottom: parent.bottom
-                                        height: Math.min(1, rate / 2.5) * (radarChart.height - 2) + 1
+                                        height: rate > 0.05 ? Math.max(2, radarChart.height * Math.min(1, rate / radarChart.scaleRate)) : 0
                                         radius: Math.min(2, width / 2)
                                         // CONVENTION-EXCEPTION: rain intensity color, echoing Yr's chart
                                         color: Color.accent
-                                        opacity: 0.4 + 0.6 * Math.min(1, rate / 2.5)
+                                        opacity: radarChart.hoverIndex === index ? 1 : 0.4 + 0.6 * Math.min(1, rate / radarChart.scaleRate)
                                     }
 
+                                }
+
+                                // Hover readout: time and intensity of the bar under
+                                // the cursor, drawn inside the chart area.
+                                Rectangle {
+                                    visible: radarChart.hoverIndex >= 0 && radarChart.hoverIndex < root.nowcastSeries.length
+                                    height: Style.space(16)
+                                    width: hoverLabel.implicitWidth + Style.space(10)
+                                    x: Math.max(0, Math.min(radarChart.hoverIndex * (radarChart.width / Math.max(1, root.nowcastSeries.length)) + (radarChart.width / Math.max(1, root.nowcastSeries.length)) / 2 - width / 2, radarChart.width - width))
+                                    y: 0
+                                    radius: Math.min(3, Style.cornerRadius)
+                                    color: Color.background
+                                    border.width: Math.max(1, Style.space(0.5))
+                                    border.color: Qt.darker(root.barForeground, 1.8)
+
+                                    Text {
+                                        id: hoverLabel
+
+                                        anchors.centerIn: parent
+                                        textFormat: Text.PlainText
+                                        text: {
+                                            if (radarChart.hoverIndex < 0 || radarChart.hoverIndex >= root.nowcastSeries.length)
+                                                return "";
+
+                                            var step = root.nowcastSeries[radarChart.hoverIndex];
+                                            return Qt.formatTime(step.date, "HH:mm") + " · " + (Math.round(step.rate * 10) / 10) + " mm/h";
+                                        }
+                                        color: root.barForeground
+                                        font.family: root.fontFamily
+                                        font.pixelSize: Style.font.caption
+                                    }
+
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    acceptedButtons: Qt.NoButton
+                                    hoverEnabled: true
+                                    cursorShape: Qt.ArrowCursor
+                                    onPositionChanged: function(mouse) {
+                                        radarChart.hoverIndex = Math.floor(mouse.x / (radarChart.width / Math.max(1, root.nowcastSeries.length)));
+                                    }
+                                    onExited: radarChart.hoverIndex = -1
                                 }
 
                             }
