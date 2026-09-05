@@ -62,7 +62,7 @@ Panel {
             }
         }
         if (peak <= Model.NOWCAST_THRESHOLD)
-            return "☀️ Dry for the next 90 minutes (radar)";
+            return root.quietGlyph + " Dry for the next 90 minutes (radar)";
 
         if (root.rain.state === "now")
             return "☔ Raining now — " + Model.describeRate(peak) + " · " + peak.toFixed(1) + " mm/h peak within 90 min";
@@ -70,6 +70,10 @@ Panel {
         var when = peakMinutes === 0 ? "now" : "in " + peakMinutes + " min";
         return "☔ Rain " + when + " · " + peak.toFixed(1) + " mm/h peak within 90 min";
     }
+    // Current WMO weather code, for the quiet bar when nothing rain-related
+    // is happening.
+    property int currentWeatherCode: -1
+    readonly property string quietGlyph: currentWeatherCode >= 0 ? Model.wmoEmoji(currentWeatherCode) : "☀️"
     // Bar text: quiet sun while dry, countdown as soon as rain matters. An
     // ellipsis until the first verdict lands, so the bar never lies about
     // data it doesn't have yet.
@@ -83,7 +87,7 @@ Panel {
             return "…";
 
         var label = Model.barLabel(root.rain);
-        return label !== "" ? label : "☀️";
+        return label !== "" ? label : root.quietGlyph;
     }
     readonly property var rainWindows: {
         var hourly = root.forecast && root.forecast.hourly;
@@ -124,7 +128,7 @@ Panel {
             var t = new Date(Date.now() + root.rain.minutesUntil * 60000);
             return "🌂 Rain at " + Qt.formatTime(t, "HH:mm");
         }
-        return "☀️ Dry for the next 16 hours";
+        return root.quietGlyph + " Dry for the next 16 hours";
     }
     // Configured coordinates come from weather.json (owned by
     // omarchy-weather-location); without them the widget falls back to an
@@ -289,13 +293,14 @@ Panel {
         if (isNaN(lat) || isNaN(lon))
             return ;
 
-        forecastProc.command = ["curl", "-fsS", "--max-time", "6", "https://api.open-meteo.com/v1/forecast" + "?latitude=" + encodeURIComponent(String(lat)) + "&longitude=" + encodeURIComponent(String(lon)) + "&hourly=precipitation" + "&forecast_days=2" + "&timezone=auto"];
+        forecastProc.command = ["curl", "-fsS", "--max-time", "6", "https://api.open-meteo.com/v1/forecast" + "?latitude=" + encodeURIComponent(String(lat)) + "&longitude=" + encodeURIComponent(String(lon)) + "&hourly=precipitation" + "&current=weather_code" + "&forecast_days=2" + "&timezone=auto"];
         forecastProc.running = true;
         fetchNowcast(lat, lon);
     }
 
     function applyForecast(parsed) {
         forecast = parsed;
+        currentWeatherCode = parsed && parsed.current ? parseInt(parsed.current.weather_code, 10) : -1;
         var hourly = parsed && parsed.hourly;
         if (hourly && hourly.precipitation && hourly.time)
             hourlyRain = Model.nextRain(hourly.precipitation, hourly.time, new Date());
@@ -343,7 +348,7 @@ Panel {
             var t = new Date(Date.now() + root.rain.minutesUntil * 60000);
             text = "🌂 Rain at " + Qt.formatTime(t, "HH:mm") + " — " + Model.describeRate(root.rain.mm) + " (" + root.rain.mm + " mm/h)";
         } else {
-            text = "☀️ No rain expected in the next 16 hours";
+            text = root.quietGlyph + " No rain expected in the next 16 hours";
         }
         notifyProc.command = ["omarchy-notification-send", text];
         notifyProc.running = true;

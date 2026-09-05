@@ -211,6 +211,16 @@ TestCase {
         verify(!Model.inNowcastRegion(40.71, -74));
     }
 
+    function test_wmoEmoji() {
+        compare(Model.wmoEmoji(0), "☀️");
+        compare(Model.wmoEmoji(2), "⛅");
+        compare(Model.wmoEmoji(3), "☁️");
+        compare(Model.wmoEmoji(61), "🌧️");
+        compare(Model.wmoEmoji(71), "❄️");
+        compare(Model.wmoEmoji(95), "⛈️");
+        compare(Model.wmoEmoji(undefined), "🌍");
+    }
+
     function test_parseIpGeo() {
         var good = Model.parseIpGeo('{"latitude": 59.91, "longitude": 10.75, "city": "Oslo"}');
         compare(good.latitude, 59.91);
