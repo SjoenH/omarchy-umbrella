@@ -180,6 +180,16 @@ function rainWindows(precipitation, times, now, hours, threshold) {
 // ---- Bar label -------------------------------------------------------------
 //
 // "" means the widget falls back to its quiet dry glyph.
+// Human description of a rain rate in mm/h, so the UI can say "light
+// drizzle" instead of making the user decode numbers.
+function describeRate(rate) {
+    rate = Number(rate) || 0
+    if (rate < 0.5) return "light drizzle"
+    if (rate < 2.5) return "light rain"
+    if (rate < 7.5) return "moderate rain"
+    return "heavy rain"
+}
+
 function barLabel(rain) {
     if (!rain)
         return ""
@@ -299,6 +309,7 @@ if (typeof module !== "undefined") {
         nextRain: nextRain,
         parseNowcast: parseNowcast,
         nextRainNowcast: nextRainNowcast,
+        describeRate: describeRate,
         rainWindows: rainWindows,
         barLabel: barLabel,
         parseLocationFile: parseLocationFile,

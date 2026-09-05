@@ -64,7 +64,7 @@ Panel {
             return "☀️ Dry for the next 90 minutes (radar)";
 
         if (root.rain.state === "now")
-            return "☔ Raining now · " + peak.toFixed(1) + " mm/h peak within 90 min";
+            return "☔ Raining now — " + Model.describeRate(peak) + " · " + peak.toFixed(1) + " mm/h peak within 90 min";
 
         var when = peakMinutes === 0 ? "now" : "in " + peakMinutes + " min";
         return "☔ Rain " + when + " · " + peak.toFixed(1) + " mm/h peak within 90 min";
@@ -114,7 +114,7 @@ Panel {
             return "Waiting for forecast…";
 
         if (root.rain.state === "now")
-            return "☔ Raining now (" + root.rain.mm + " mm/h)";
+            return "☔ Raining now — " + Model.describeRate(root.rain.mm) + " (" + root.rain.mm + " mm/h)";
 
         if (root.rain.state === "soon")
             return "☔ Rain starting in " + Math.max(0, root.rain.minutesUntil) + " min";
@@ -332,12 +332,12 @@ Panel {
     function notifyUmbrella() {
         var text = "";
         if (root.rain.state === "now") {
-            text = "☔ Raining now (" + root.rain.mm + " mm/h)";
+            text = "☔ Raining now — " + Model.describeRate(root.rain.mm) + " (" + root.rain.mm + " mm/h)";
         } else if (root.rain.state === "soon") {
-            text = "☔ Rain in " + Math.max(0, root.rain.minutesUntil) + " min (" + root.rain.mm + " mm/h)";
+            text = "☔ Rain in " + Math.max(0, root.rain.minutesUntil) + " min — " + Model.describeRate(root.rain.mm) + " (" + root.rain.mm + " mm/h)";
         } else if (root.rain.state === "later") {
             var t = new Date(Date.now() + root.rain.minutesUntil * 60000);
-            text = "🌂 Rain at " + Qt.formatTime(t, "HH:mm") + " (" + root.rain.mm + " mm/h)";
+            text = "🌂 Rain at " + Qt.formatTime(t, "HH:mm") + " — " + Model.describeRate(root.rain.mm) + " (" + root.rain.mm + " mm/h)";
         } else {
             text = "☀️ No rain expected in the next 16 hours";
         }
@@ -644,7 +644,7 @@ Panel {
                                                 return "";
 
                                             var step = root.nowcastSeries[radarChart.hoverIndex];
-                                            return Qt.formatTime(step.date, "HH:mm") + " · " + (Math.round(step.rate * 10) / 10) + " mm/h";
+                                            return Qt.formatTime(step.date, "HH:mm") + " · " + Model.describeRate(step.rate) + " · " + (Math.round(step.rate * 10) / 10) + " mm/h";
                                         }
                                         color: root.barForeground
                                         font.family: root.fontFamily
@@ -730,7 +730,9 @@ Panel {
                                         textFormat: Text.PlainText
                                         anchors.right: parent.right
                                         anchors.verticalCenter: parent.verticalCenter
-                                        text: windowRow.modelData.mm + " mm"
+                                        // Total for the window plus what that means in
+                                        // human terms (intensity = total / duration).
+                                        text: windowRow.modelData.mm + " mm · " + Model.describeRate(windowRow.modelData.mm / Math.max(0.25, (windowRow.modelData.end - windowRow.modelData.start) / 3.6e+06))
                                         color: Qt.darker(root.barForeground, 1.4)
                                         font.family: root.fontFamily
                                         font.pixelSize: Style.font.body

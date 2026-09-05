@@ -196,6 +196,14 @@ TestCase {
         compare(Model.nextRainNowcast(null, base), null);
     }
 
+    function test_describeRate() {
+        compare(Model.describeRate(0.2), "light drizzle");
+        compare(Model.describeRate(1), "light rain");
+        compare(Model.describeRate(4), "moderate rain");
+        compare(Model.describeRate(10), "heavy rain");
+        compare(Model.describeRate(undefined), "light drizzle");
+    }
+
     function test_parseIpGeo() {
         var good = Model.parseIpGeo('{"latitude": 59.91, "longitude": 10.75, "city": "Oslo"}');
         compare(good.latitude, 59.91);
