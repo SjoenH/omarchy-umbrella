@@ -31,20 +31,15 @@ Panel {
         "mm": 0
     })
     // Radar nowcast steps from MET nowcast/2.0 (next ~90 min). Null while
-    // unavailable; the verdict then falls back to the hourly forecast.
+    // unavailable or outside coverage; the verdict then falls back to the
+    // hourly forecast.
     property var nowcastSteps: null
-    // Global RainViewer tile sample ("is it raining here right now"). Lower
-    // precedence than the MET nowcast, higher than the hourly forecast.
-    property var radarSample: null
     // Radar verdict wins while the nowcast is live — it observes rain that
     // hourly grid data misses — and defers to the hourly forecast otherwise.
     readonly property var rain: {
         var nowcast = Model.nextRainNowcast(nowcastSteps, new Date());
         if (nowcast)
             return nowcast;
-
-        if (radarSample)
-            return radarSample;
 
         return hourlyRain;
     }
@@ -317,15 +312,14 @@ Panel {
     // Scandinavia and nearby; a failed or empty response just leaves the
     // hourly verdict in charge.
     function fetchNowcast(lat, lon) {
-        if (isNaN(lat) || isNaN(lon))
+        // MET's nowcast radar only covers the Nordics + Baltics; outside
+        // that there is no radar at all and the hourly forecast decides.
+        if (isNaN(lat) || isNaN(lon) || !Model.inNowcastRegion(lat, lon)) {
+            nowcastSteps = null;
             return ;
-
+        }
         nowcastProc.command = ["curl", "-fsS", "--max-time", "6", "-H", "User-Agent: koka-umbrella/2.0 github.com/SjoenH/omarchy-umbrella", "https://api.met.no/weatherapi/nowcast/2.0/complete" + "?lat=" + encodeURIComponent(String(lat)) + "&lon=" + encodeURIComponent(String(lon))];
         nowcastProc.running = true;
-        // Global fallback for the "now" verdict: MET nowcast only covers the
-        // Nordics, RainViewer's mosaic covers the whole globe (past frames
-        // only, band-mapped intensity).
-        mapsProc.running = true;
     }
 
     // A dropped response (e.g. waking before the network is back) retries a
@@ -479,53 +473,6 @@ Panel {
     }
 
     // RainViewer, step 1: the maps index (host + latest frame path).
-    Process {
-        id: mapsProc
-
-        command: ["curl", "-fsS", "--max-time", "6", "https://api.rainviewer.com/public/weather-maps.json"]
-
-        stdout: StdioCollector {
-            waitForEnd: true
-            onStreamFinished: {
-                var maps = Model.parseWeatherMaps(text);
-                if (!maps)
-                    return ;
-
-                // Step 2 runs the python sampler on the tile at the active
-                // location; it prints "wet <mm/h>" or "dry".
-                var location = root.activeLocation;
-                if (!location || location.latitude === null || location.longitude === null)
-                    return ;
-
-                rainviewerProc.command = ["python3", Qt.resolvedUrl("RainViewer.py").toString().replace("file://", ""), maps.base, String(location.latitude), String(location.longitude)];
-                rainviewerProc.running = true;
-            }
-        }
-
-    }
-
-    // RainViewer, step 2: tile download + PNG sample (pure stdlib python).
-    Process {
-        id: rainviewerProc
-
-        stdout: StdioCollector {
-            waitForEnd: true
-            onStreamFinished: {
-                var raw = String(text || "").trim();
-                // Stale sample is better than none only if it still says wet;
-                // a failed sample (python missing, network) keeps the last one.
-                var verdict = raw ? Model.parseRainViewerSample(raw) : null;
-                if (verdict || !root.radarSample)
-                    root.radarSample = verdict;
-
-                if (verdict)
-                    root.fetchedOnce = true;
-
-            }
-        }
-
-    }
-
     Process {
         id: locationSaveProc
 

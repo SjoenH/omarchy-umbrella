@@ -204,16 +204,11 @@ TestCase {
         compare(Model.describeRate(undefined), "light drizzle");
     }
 
-    function test_parseWeatherMaps_and_sample() {
-        var maps = Model.parseWeatherMaps('{"host":"https://tilecache.rainviewer.com","radar":{"past":[{"time":1,"path":"/v2/radar/abc"}]}}');
-        compare(maps.base, "https://tilecache.rainviewer.com/v2/radar/abc");
-        compare(Model.parseWeatherMaps("not json"), null);
-        compare(Model.parseWeatherMaps('{"host":"x","radar":{"past":[]}}'), null);
-        var wet = Model.parseRainViewerSample("wet 1.9");
-        compare(wet.state, "now");
-        compare(wet.mm, 1.9);
-        compare(Model.parseRainViewerSample("dry"), null);
-        compare(Model.parseRainViewerSample("garbage"), null);
+    function test_inNowcastRegion() {
+        verify(Model.inNowcastRegion(58.97, 5.73));
+        verify(Model.inNowcastRegion(60.17, 24.94));
+        verify(!Model.inNowcastRegion(41.9, 12.5));
+        verify(!Model.inNowcastRegion(40.71, -74));
     }
 
     function test_parseIpGeo() {

@@ -58,14 +58,10 @@ data it falls back to the umbrella label.
 
 ### Radar sources
 
-- **MET Norway nowcast/2.0** (Nordics + Baltics): 5-minute radar steps with
-  exact mm/h, powering `☔ Now`, the 90-minute chart, and hover readouts.
-- **RainViewer Weather Maps** (global fallback): samples the free global
-  radar mosaic at your location for the "is it raining right now" verdict
-  outside MET coverage. Requires `python3` (stdlib only). Intensity is
-  band-mapped from tile colors, so it is approximate; the 90-minute forecast
-  chart remains MET-only. Data © RainViewer, used under its free
-  personal-use API terms ([rainviewer.com](https://www.rainviewer.com/)).
+- **MET Norway nowcast/2.0** (Nordics + Baltics only): 5-minute radar steps
+  with exact mm/h, powering `☔ Now`, the 90-minute chart, and hover
+  readouts. Outside this region the widget falls back to the hourly
+  forecast — no radar verdicts, no chart.
 
 ## Development
 
