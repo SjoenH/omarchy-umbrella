@@ -169,29 +169,30 @@ TestCase {
         // First step wet → raining now.
         var wet = [{
             "date": new Date(base.getTime()),
-            "rate": 0.4
+            "rate": 0.8
         }, {
             "date": new Date(base.getTime() + 300000),
             "rate": 0
         }];
         var nowRain = Model.nextRainNowcast(wet, base);
         compare(nowRain.state, "now");
-        compare(nowRain.mm, 0.4);
+        compare(nowRain.mm, 0.8);
         // Rain starting in 5 minutes → soon with countdown.
         var soon = [{
             "date": new Date(base.getTime()),
             "rate": 0
         }, {
             "date": new Date(base.getTime() + 300000),
-            "rate": 0.4
+            "rate": 0.8
         }];
         var soonRain = Model.nextRainNowcast(soon, base);
         compare(soonRain.state, "soon");
         compare(soonRain.minutesUntil, 5);
-        // Dry radar → null so the hourly verdict decides.
+        // Trace radar (below the 0.5 mm/h threshold) → null so the hourly
+        // verdict decides.
         compare(Model.nextRainNowcast([{
             "date": base,
-            "rate": 0
+            "rate": 0.4
         }], base), null);
         compare(Model.nextRainNowcast(null, base), null);
     }

@@ -25,19 +25,30 @@ Panel {
     // One source (Open-Meteo hourly precipitation), one fetch, one state
     // object. Kept on failure so the bar keeps showing the last verdict.
     property var forecast: null
-    property var hourlyRain: ({
-        "state": "none",
-        "minutesUntil": -1,
-        "mm": 0
-    })
     // Radar nowcast steps from MET nowcast/2.0 (next ~90 min). Null while
     // unavailable or outside coverage; the verdict then falls back to the
     // hourly forecast.
     property var nowcastSteps: null
+    // Clock tick: verdicts are recomputed from already-fetched series on this
+    // cadence, so minute-level countdowns move without any new HTTP traffic.
+    // The refetch timer only has to slide the data window.
+    property date now: new Date()
+    // Hourly verdict, recomputed against the tick like the radar verdict.
+    readonly property var hourlyRain: {
+        var hourly = forecast && forecast.hourly;
+        if (hourly && hourly.precipitation && hourly.time)
+            return Model.nextRain(hourly.precipitation, hourly.time, now);
+
+        return {
+            "state": "none",
+            "minutesUntil": -1,
+            "mm": 0
+        };
+    }
     // Radar verdict wins while the nowcast is live — it observes rain that
     // hourly grid data misses — and defers to the hourly forecast otherwise.
     readonly property var rain: {
-        var nowcast = Model.nextRainNowcast(nowcastSteps, new Date());
+        var nowcast = Model.nextRainNowcast(nowcastSteps, now);
         if (nowcast)
             return nowcast;
 
@@ -301,15 +312,6 @@ Panel {
     function applyForecast(parsed) {
         forecast = parsed;
         currentWeatherCode = parsed && parsed.current ? parseInt(parsed.current.weather_code, 10) : -1;
-        var hourly = parsed && parsed.hourly;
-        if (hourly && hourly.precipitation && hourly.time)
-            hourlyRain = Model.nextRain(hourly.precipitation, hourly.time, new Date());
-        else
-            hourlyRain = {
-            "state": "none",
-            "minutesUntil": -1,
-            "mm": 0
-        };
         fetchedOnce = true;
     }
 
@@ -528,6 +530,34 @@ Panel {
         repeat: true
         triggeredOnStart: true
         onTriggered: root.refresh()
+    }
+
+    // Radar-only refetch, decoupled from the full forecast cycle. Minute-
+    // level countdowns are recomputed locally on the clock tick; this curl
+    // only slides the 90-minute data window. No-op outside MET coverage.
+    Timer {
+        id: radarTimer
+
+        interval: 5 * 60 * 1000
+        running: true
+        repeat: true
+        triggeredOnStart: false
+        onTriggered: {
+            var location = root.activeLocation;
+            if (location && location.latitude !== null && location.longitude !== null)
+                root.fetchNowcast(parseFloat(String(location.latitude)), parseFloat(String(location.longitude)));
+
+        }
+    }
+
+    // Clock tick: recompute verdicts (countdowns, bar label, windows) from
+    // already-fetched series, no HTTP traffic.
+    Timer {
+        interval: 30 * 1000
+        running: true
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: root.now = new Date()
     }
 
     // ---- Panel --------------------------------------------------------------
