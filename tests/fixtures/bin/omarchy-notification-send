@@ -1,0 +1,4 @@
+#!/bin/sh
+# Stand-in for omarchy-notification-send while the spec runs: no test sends a
+# desktop notification.
+exit 0

@@ -102,16 +102,17 @@ BarWidget {
         }
     }
 
-    BarIconButton {
+    // A text button, not an icon button: the countdown ("☔ 45m") is a label
+    // to be read at the bar's text size. BarIconButton fits whatever it is
+    // given into an icon-sized canvas, which shrank the label to a few pixels.
+    WidgetButton {
         id: button
 
+        objectName: "barButton"
         anchors.fill: parent
         visible: !root.radarInBar
         bar: root.bar
         text: panelLoader.item ? panelLoader.item.barText : ""
-        // Auto-size to the label instead of a fixed slot: the countdown text
-        // ("☔ 45m") is wider than any square slot and would overlap neighbors.
-        slotSize: -1
         // Tooltip suppressed because the panel is the detail view.
         tooltipText: ""
         onPressed: function(b) {

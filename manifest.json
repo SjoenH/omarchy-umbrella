@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "koka.umbrella",
   "name": "Umbrella Countdown",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "author": "koka.no",
   "license": "MIT",
   "description": "Counts down to rain: ☔30m when rain starts within 2 hours, 🌂2h for later today. Quiet when dry.",

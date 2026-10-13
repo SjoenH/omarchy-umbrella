@@ -20,8 +20,9 @@ Panel {
     // slot up the same way.
     property var hostWidget: null
     readonly property var barIdentity: hostWidget || root
-    readonly property string barForeground: root.bar ? root.bar.foreground : Color.foreground
     readonly property string fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
+    readonly property color foreground: root.bar ? root.bar.foreground : Color.foreground
+    readonly property color dim: Qt.darker(root.foreground, 1.55)
     // One source (Open-Meteo hourly precipitation), one fetch, one state
     // object. Kept on failure so the bar keeps showing the last verdict.
     property var forecast: null
@@ -125,22 +126,6 @@ Panel {
         }
         return out;
     }
-    readonly property string rainStatusLine: {
-        if (!root.fetchedOnce)
-            return "Waiting for forecast…";
-
-        if (root.rain.state === "now")
-            return "☔ Raining now — " + Model.describeRate(root.rain.mm) + " (" + root.rain.mm + " mm/h)";
-
-        if (root.rain.state === "soon")
-            return "☔ Rain starting in " + Math.max(0, root.rain.minutesUntil) + " min";
-
-        if (root.rain.state === "later") {
-            var t = new Date(Date.now() + root.rain.minutesUntil * 60000);
-            return "🌂 Rain at " + Qt.formatTime(t, "HH:mm");
-        }
-        return root.quietGlyph + " Dry for the next 16 hours";
-    }
     // Configured coordinates come from weather.json (owned by
     // omarchy-weather-location); without them the widget falls back to an
     // approximate IP-geolocated position, refreshed with every cycle.
@@ -215,6 +200,126 @@ Panel {
             return root.bar.switchPanelFrom(root.barIdentity, direction);
 
         return false;
+    }
+
+    // ---- What the panel says about the verdict ----------------------------
+    // The arched line over the title.
+    function captionText() {
+        var where = root.locationName !== "" ? " in " + root.locationName : "";
+        if (!root.fetchedOnce)
+            return "Checking the sky" + where;
+
+        if (root.rain.state === "now")
+            return "Raining now" + where;
+
+        if (root.rain.state === "soon")
+            return "Rain soon" + where;
+
+        if (root.rain.state === "later")
+            return "Rain later" + where;
+
+        return "Dry" + where;
+    }
+
+    // The illustration between the title words: the bar's own glyph.
+    function titleGlyph() {
+        if (root.fetchedOnce && (root.rain.state === "now" || root.rain.state === "soon"))
+            return "\u2614";
+
+        if (root.fetchedOnce && root.rain.state === "later")
+            return "\ud83c\udf02";
+
+        return root.quietGlyph;
+    }
+
+    // Rounded to the minute: the countdown is whole minutes from a clock
+    // tick, so the sum can land a few seconds short of the hour it means.
+    function rainStartsAt() {
+        var ms = root.now.getTime() + Math.max(0, root.rain.minutesUntil) * 60000;
+        return new Date(Math.round(ms / 60000) * 60000);
+    }
+
+    // True when the radar shows any rain at all in its 90 minutes.
+    readonly property bool radarShowsRain: {
+        for (var i = 0; i < nowcastSeries.length; i++) {
+            if (nowcastSeries[i].rate > 0.05)
+                return true;
+
+        }
+        return false;
+    }
+
+    function rateText(rate) {
+        return Model.describeRate(rate) + " \u00b7 " + (Math.round(rate * 10) / 10) + " mm/h";
+    }
+
+    function verdictName() {
+        if (!root.fetchedOnce)
+            return "Waiting for forecast\u2026";
+
+        if (root.rain.state === "now")
+            return "Raining now";
+
+        if (root.rain.state === "soon" || root.rain.state === "later")
+            return "Rain at " + Qt.formatTime(root.rainStartsAt(), "HH:mm");
+
+        return "No rain";
+    }
+
+    function verdictDetail() {
+        if (!root.fetchedOnce)
+            return "";
+
+        if (root.rain.state === "none")
+            return "in the next 16 hours";
+
+        return root.rateText(root.rain.mm);
+    }
+
+    // The countdown, as large as the bar's label is small.
+    function verdictValue() {
+        if (!root.fetchedOnce)
+            return "\u2026";
+
+        if (root.rain.state === "now")
+            return "Now";
+
+        if (root.rain.state === "soon")
+            return String(Math.max(0, root.rain.minutesUntil));
+
+        if (root.rain.state === "later")
+            return String(Math.floor(root.rain.minutesUntil / 60));
+
+        return "Dry";
+    }
+
+    function verdictUnit() {
+        if (!root.fetchedOnce)
+            return "";
+
+        if (root.rain.state === "soon")
+            return "min";
+
+        return root.rain.state === "later" ? "h" : "";
+    }
+
+    function verdictNote() {
+        return root.fetchedOnce && (root.rain.state === "soon" || root.rain.state === "later") ? "to go" : "";
+    }
+
+    // A wash of the foreground over the panel background, as the cards use.
+    function tint(amount) {
+        var from = Color.popups.background;
+        return Qt.rgba(from.r + (root.foreground.r - from.r) * amount, from.g + (root.foreground.g - from.g) * amount, from.b + (root.foreground.b - from.b) * amount, 1);
+    }
+
+    // Under the verdict when the radar covers the place but sees nothing.
+    // The hourly forecast decides then, and it can say rain now, or within
+    // the radar's 90 minutes, while the radar is empty. Say which is which
+    // rather than "raining now" over "radar is dry".
+    function dryRadarLine() {
+        var forecastOnly = root.rain.state === "now" || (root.rain.state === "soon" && root.rain.minutesUntil <= 90);
+        return forecastOnly ? "Forecast only: the radar sees no rain yet" : "Radar is dry for the next 90 minutes";
     }
 
     // The shell hands a third-party plugin a bar facade on which this flag is
@@ -409,8 +514,11 @@ Panel {
 
     }
 
+    objectName: "umbrellaPanel"
     moduleName: "koka.umbrella"
     manageIpc: false
+    Accessible.role: Accessible.Dialog
+    Accessible.name: "Umbrella Countdown"
     onConfiguredLocationStateChanged: Qt.callLater(root.refresh)
 
     // The first read can race shell startup (observed sporadically), leaving a
@@ -585,7 +693,7 @@ Panel {
         open: root.opened
         centerOnBar: false
         focusTarget: keyCatcher
-        contentWidth: panel.fittedContentWidth(Style.space(360))
+        contentWidth: panel.fittedContentWidth(Style.space(340))
         contentHeight: panel.fittedContentHeight(umbrellaColumn.implicitHeight)
 
         PanelKeyCatcher {
@@ -613,185 +721,135 @@ Panel {
                     id: umbrellaColumn
 
                     width: umbrellaScroll.width
-                    spacing: Style.space(14)
+                    spacing: Style.space(12)
 
-                    // ---- Rain -----------------------------------------------------
+                    PanelTitle {
+                        width: parent.width
+                        caption: root.captionText()
+                        leftWord: "Umbrella"
+                        rightWord: "Countdown"
+                        foreground: root.foreground
+                        fontFamily: root.fontFamily
+
+                        Text {
+                            objectName: "titleGlyph"
+                            anchors.centerIn: parent
+                            textFormat: Text.PlainText
+                            text: root.titleGlyph()
+                            font.pixelSize: Math.round(parent.height * 0.72)
+                        }
+
+                    }
+
+                    // ---- Verdict, over the radar when there is one ------------
+                    StatCard {
+                        objectName: "verdictCard"
+                        width: parent.width
+                        name: root.verdictName()
+                        detail: root.verdictDetail()
+                        value: root.verdictValue()
+                        unit: root.verdictUnit()
+                        note: root.verdictNote()
+                        foreground: root.foreground
+                        fontFamily: root.fontFamily
+
+                        // In a Column so that whichever of the two is hidden
+                        // takes no room in the card.
+                        Column {
+                            width: parent.width
+
+                            NowcastChart {
+                                objectName: "nowcastChart"
+                                width: parent.width
+                                visible: root.radarShowsRain
+                                series: root.nowcastSeries
+                                foreground: root.foreground
+                                fontFamily: root.fontFamily
+                            }
+
+                            // A dry radar is one line, not an empty chart.
+                            Text {
+                                objectName: "radarDryLine"
+                                width: parent.width
+                                visible: root.nowcastSeries.length > 0 && !root.radarShowsRain
+                                textFormat: Text.PlainText
+                                text: root.dryRadarLine()
+                                color: root.dim
+                                font.family: root.fontFamily
+                                font.pixelSize: Style.font.caption
+                            }
+
+                        }
+
+                    }
+
+                    // ---- Every rain window in the hourly forecast --------------
                     Column {
                         width: parent.width
-                        spacing: Style.space(8)
+                        spacing: Style.space(6)
+                        visible: root.rainWindows.length > 0
 
                         Text {
                             textFormat: Text.PlainText
-                            text: "RAIN"
-                            color: Qt.darker(root.barForeground, 1.5)
+                            text: "Next 16 hours"
+                            color: root.dim
                             font.family: root.fontFamily
                             font.pixelSize: Style.font.caption
-                            font.letterSpacing: 1
                             font.bold: true
                         }
 
-                        Text {
-                            textFormat: Text.PlainText
-                            width: parent.width
-                            text: root.rainStatusLine
-                            color: root.barForeground
-                            font.family: root.fontFamily
-                            font.pixelSize: Style.font.subtitle
-                            elide: Text.ElideRight
-                        }
+                        Repeater {
+                            model: root.rainWindows
 
-                        // ---- Radar nowcast (Yr-style 90-minute bars) ------
-                        Column {
-                            visible: root.nowcastSeries.length > 0
-                            width: parent.width
-                            spacing: Style.space(2)
+                            Rectangle {
+                                id: windowRow
 
-                            Item {
-                                id: radarChart
+                                required property var modelData
+                                required property int index
+                                // Intensity is the window's total over its length.
+                                readonly property real rate: modelData.mm / Math.max(0.25, (modelData.end - modelData.start) / 3.6e+06)
 
-                                // Fixed intensity scale, matching the bar chart.
-                                readonly property real scaleRate: 1.5
-                                property int hoverIndex: -1
-
+                                objectName: "rainWindow-" + index
                                 width: parent.width
-                                height: Style.space(36)
+                                height: Style.space(34)
+                                radius: Style.cornerRadius
+                                color: root.tint(0.05)
 
-                                Repeater {
-                                    model: root.nowcastSeries
-
-                                    Rectangle {
-                                        required property var modelData
-                                        required property int index
-                                        readonly property real rate: Math.max(0, Number(modelData.rate) || 0)
-
-                                        x: index * (radarChart.width / root.nowcastSeries.length)
-                                        width: radarChart.width / root.nowcastSeries.length - 1
-                                        anchors.bottom: parent.bottom
-                                        height: rate > 0.05 ? Math.max(2, radarChart.height * Math.min(1, rate / radarChart.scaleRate)) : 0
-                                        radius: Math.min(2, width / 2)
-                                        // CONVENTION-EXCEPTION: rain intensity color, echoing Yr's chart
-                                        color: Color.accent
-                                        opacity: radarChart.hoverIndex === index ? 1 : 0.4 + 0.6 * Math.min(1, rate / radarChart.scaleRate)
-                                    }
-
+                                Text {
+                                    objectName: "rainWindowTime-" + windowRow.index
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: Style.spacing.rowPaddingX
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    textFormat: Text.PlainText
+                                    text: Qt.formatTime(windowRow.modelData.start, "HH:mm") + " \u2013 " + Qt.formatTime(windowRow.modelData.end, "HH:mm")
+                                    color: root.foreground
+                                    font.family: root.fontFamily
+                                    font.pixelSize: Style.font.body
+                                    font.weight: Font.DemiBold
                                 }
 
-                                // Hover readout: time and intensity of the bar under
-                                // the cursor, drawn inside the chart area.
-                                Rectangle {
-                                    visible: radarChart.hoverIndex >= 0 && radarChart.hoverIndex < root.nowcastSeries.length
-                                    height: Style.space(16)
-                                    width: hoverLabel.implicitWidth + Style.space(10)
-                                    x: Math.max(0, Math.min(radarChart.hoverIndex * (radarChart.width / Math.max(1, root.nowcastSeries.length)) + (radarChart.width / Math.max(1, root.nowcastSeries.length)) / 2 - width / 2, radarChart.width - width))
-                                    y: 0
-                                    radius: Math.min(3, Style.cornerRadius)
-                                    color: Color.background
-                                    border.width: Math.max(1, Style.space(0.5))
-                                    border.color: Qt.darker(root.barForeground, 1.8)
+                                Row {
+                                    anchors.right: parent.right
+                                    anchors.rightMargin: Style.spacing.rowPaddingX
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    spacing: Style.space(6)
 
                                     Text {
-                                        id: hoverLabel
-
-                                        anchors.centerIn: parent
+                                        anchors.baseline: windowAmount.baseline
                                         textFormat: Text.PlainText
-                                        text: {
-                                            if (radarChart.hoverIndex < 0 || radarChart.hoverIndex >= root.nowcastSeries.length)
-                                                return "";
-
-                                            var step = root.nowcastSeries[radarChart.hoverIndex];
-                                            if (step.rate <= Model.NOWCAST_THRESHOLD)
-                                                return Qt.formatTime(step.date, "HH:mm") + " · dry";
-
-                                            return Qt.formatTime(step.date, "HH:mm") + " · " + Model.describeRate(step.rate) + " · " + (Math.round(step.rate * 10) / 10) + " mm/h";
-                                        }
-                                        color: root.barForeground
+                                        text: Model.describeRate(windowRow.rate)
+                                        color: root.dim
                                         font.family: root.fontFamily
                                         font.pixelSize: Style.font.caption
                                     }
 
-                                }
-
-                                MouseArea {
-                                    anchors.fill: parent
-                                    acceptedButtons: Qt.NoButton
-                                    hoverEnabled: true
-                                    cursorShape: Qt.ArrowCursor
-                                    onPositionChanged: function(mouse) {
-                                        radarChart.hoverIndex = Math.floor(mouse.x / (radarChart.width / Math.max(1, root.nowcastSeries.length)));
-                                    }
-                                    onExited: radarChart.hoverIndex = -1
-                                }
-
-                            }
-
-                            Item {
-                                width: parent.width
-                                height: Style.font.caption * 1.4
-
-                                Text {
-                                    textFormat: Text.PlainText
-                                    anchors.left: parent.left
-                                    text: "Now"
-                                    color: Qt.darker(root.barForeground, 1.6)
-                                    font.family: root.fontFamily
-                                    font.pixelSize: Style.font.caption
-                                }
-
-                                Text {
-                                    textFormat: Text.PlainText
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    text: "45"
-                                    color: Qt.darker(root.barForeground, 1.6)
-                                    font.family: root.fontFamily
-                                    font.pixelSize: Style.font.caption
-                                }
-
-                                Text {
-                                    textFormat: Text.PlainText
-                                    anchors.right: parent.right
-                                    text: "90 min"
-                                    color: Qt.darker(root.barForeground, 1.6)
-                                    font.family: root.fontFamily
-                                    font.pixelSize: Style.font.caption
-                                }
-
-                            }
-
-                        }
-
-                        Column {
-                            width: parent.width
-                            spacing: Style.space(4)
-
-                            Repeater {
-                                model: root.rainWindows
-
-                                Item {
-                                    id: windowRow
-
-                                    required property var modelData
-
-                                    width: parent.width
-                                    height: Style.space(22)
-
                                     Text {
-                                        textFormat: Text.PlainText
-                                        anchors.left: parent.left
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        text: "  " + Qt.formatTime(windowRow.modelData.start, "HH:mm") + " – " + Qt.formatTime(windowRow.modelData.end, "HH:mm")
-                                        color: root.barForeground
-                                        font.family: root.fontFamily
-                                        font.pixelSize: Style.font.body
-                                    }
+                                        id: windowAmount
 
-                                    Text {
+                                        objectName: "rainWindowAmount-" + windowRow.index
                                         textFormat: Text.PlainText
-                                        anchors.right: parent.right
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        // Total for the window plus what that means in
-                                        // human terms (intensity = total / duration).
-                                        text: windowRow.modelData.mm + " mm · " + Model.describeRate(windowRow.modelData.mm / Math.max(0.25, (windowRow.modelData.end - windowRow.modelData.start) / 3.6e+06))
-                                        color: Qt.darker(root.barForeground, 1.4)
+                                        text: windowRow.modelData.mm + " mm"
+                                        color: root.foreground
                                         font.family: root.fontFamily
                                         font.pixelSize: Style.font.body
                                     }
@@ -804,76 +862,115 @@ Panel {
 
                     }
 
-                    // ---- Location -------------------------------------------------
+                    // ---- Location ------------------------------------------------
                     Column {
                         width: parent.width
-                        spacing: Style.space(8)
+                        spacing: Style.space(2)
 
                         Text {
                             textFormat: Text.PlainText
-                            text: "LOCATION"
-                            color: Qt.darker(root.barForeground, 1.5)
+                            text: "Location"
+                            color: root.dim
                             font.family: root.fontFamily
                             font.pixelSize: Style.font.caption
-                            font.letterSpacing: 1
                             font.bold: true
                         }
 
-                        Row {
+                        // The location as a control: click, or Return, to search.
+                        BorderSurface {
+                            id: locationRow
+
+                            readonly property bool hot: locationMouse.containsMouse
+
+                            objectName: "locationRow"
                             visible: !root.editingLocation
-                            spacing: Style.space(6)
+                            width: parent.width
+                            height: locationField.implicitHeight
+                            radius: Style.cornerRadius
+                            color: Style.controlFill(activeFocus, hot, root.foreground, Color.accent)
+                            borderSpec: Border.controlSpec(activeFocus ? "focus" : (hot ? "hover-cursor" : "normal"), root.foreground, Color.accent)
+                            activeFocusOnTab: true
+                            Accessible.role: Accessible.Button
+                            Accessible.name: "Change location"
+                            Keys.onReturnPressed: root.startEditingLocation()
+                            Keys.onEnterPressed: root.startEditingLocation()
+                            Keys.onSpacePressed: root.startEditingLocation()
 
-                            TapHandler {
-                                onTapped: root.startEditingLocation()
-                            }
-
-                            HoverHandler {
-                                cursorShape: Qt.PointingHandCursor
-                            }
-
-                            Text {
-                                textFormat: Text.PlainText
-                                text: "" // nf-fa-map_marker
-                                color: Qt.darker(root.barForeground, 1.4)
-                                font.family: root.fontFamily
-                                font.pixelSize: Style.font.body
+                            Row {
+                                anchors.left: parent.left
+                                anchors.leftMargin: locationRow.borderLeft + Style.spacing.controlPaddingX
                                 anchors.verticalCenter: parent.verticalCenter
+                                spacing: Style.space(6)
+
+                                Text {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    textFormat: Text.PlainText
+                                    text: "\uf041" // nf-fa-map_marker
+                                    color: root.dim
+                                    font.family: root.fontFamily
+                                    font.pixelSize: Style.font.body
+                                }
+
+                                Text {
+                                    objectName: "locationName"
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    textFormat: Text.PlainText
+                                    text: root.locationName !== "" ? root.locationName : "Set location"
+                                    color: root.foreground
+                                    font.family: root.fontFamily
+                                    font.pixelSize: Style.font.body
+                                    font.italic: root.locationName === ""
+                                }
+
+                                Text {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    visible: root.usingIpGeo
+                                    textFormat: Text.PlainText
+                                    text: "\u00b7 approximate"
+                                    color: root.dim
+                                    font.family: root.fontFamily
+                                    font.pixelSize: Style.font.caption
+                                }
+
                             }
 
                             Text {
-                                textFormat: Text.PlainText
-                                text: root.locationName !== "" ? root.locationName : "Set location"
-                                color: Qt.darker(root.barForeground, 1.4)
-                                font.family: root.fontFamily
-                                font.pixelSize: Style.font.body
-                                font.italic: root.locationName === ""
+                                anchors.right: parent.right
+                                anchors.rightMargin: locationRow.borderRight + Style.spacing.controlPaddingX
                                 anchors.verticalCenter: parent.verticalCenter
-                            }
-
-                            Text {
                                 textFormat: Text.PlainText
-                                visible: root.usingIpGeo
-                                text: "· approximate"
-                                color: Qt.darker(root.barForeground, 1.8)
+                                text: "Change"
+                                color: root.dim
                                 font.family: root.fontFamily
                                 font.pixelSize: Style.font.caption
-                                anchors.verticalCenter: parent.verticalCenter
+                            }
+
+                            MouseArea {
+                                id: locationMouse
+
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.startEditingLocation()
                             }
 
                         }
 
                         Row {
                             visible: root.editingLocation
+                            width: parent.width
                             spacing: Style.space(6)
 
                             TextField {
                                 id: locationField
 
-                                width: Style.space(190)
+                                objectName: "locationField"
+                                width: parent.width - clearLocationButton.width - parent.spacing
                                 enabled: !root.savingLocation
                                 placeholderText: "Search city"
-                                foreground: root.barForeground
+                                foreground: root.foreground
                                 font.family: root.fontFamily
+                                Accessible.name: "Search for a city"
                                 onTextChanged: {
                                     if (root.editingLocation && !root.savingLocation)
                                         geocodeDebounce.restart();
@@ -903,18 +1000,23 @@ Panel {
                             // Clear back to IP auto-detect. While a committed location is
                             // saving, this same compact affordance becomes a spinner.
                             Rectangle {
-                                width: Style.space(18)
-                                height: Style.space(18)
+                                id: clearLocationButton
+
+                                objectName: "clearLocationButton"
+                                width: Style.space(22)
+                                height: Style.space(22)
                                 anchors.verticalCenter: parent.verticalCenter
                                 radius: Math.min(4, Style.cornerRadius)
-                                color: !root.savingLocation && clearLocationArea.containsMouse ? Style.hoverFillFor(root.barForeground, Color.accent) : "transparent"
+                                color: !root.savingLocation && clearLocationArea.containsMouse ? Style.hoverFillFor(root.foreground, Color.accent) : "transparent"
+                                Accessible.role: Accessible.Button
+                                Accessible.name: "Detect the location automatically"
 
                                 Text {
                                     textFormat: Text.PlainText
                                     anchors.centerIn: parent
-                                    text: root.savingLocation ? "󰦖" : "✕"
+                                    text: root.savingLocation ? "\udb82\udd96" : "\u2715"
                                     font.family: root.fontFamily
-                                    color: Qt.darker(root.barForeground, 1.4)
+                                    color: root.dim
                                     font.pixelSize: Style.font.bodySmall
 
                                     RotationAnimator on rotation {
@@ -945,6 +1047,7 @@ Panel {
                         Column {
                             visible: root.editingLocation && !root.savingLocation && root.locationSuggestions.length > 0
                             width: parent.width
+                            topPadding: Style.space(4)
                             spacing: Style.space(2)
 
                             Repeater {
@@ -956,21 +1059,22 @@ Panel {
                                     required property var modelData
                                     required property int index
 
+                                    objectName: "suggestion-" + index
                                     width: parent.width
                                     height: Style.space(34)
                                     radius: Style.cornerRadius
-                                    color: root.suggestionIndex === index ? Style.selectedFillFor(root.barForeground, Color.accent) : (rowHover.hovered ? Style.hoverFillFor(root.barForeground, Color.accent) : "transparent")
+                                    color: root.suggestionIndex === index ? Style.selectedFillFor(root.foreground, Color.accent) : (rowHover.containsMouse ? Style.hoverFillFor(root.foreground, Color.accent) : "transparent")
 
                                     Column {
                                         anchors.verticalCenter: parent.verticalCenter
                                         anchors.left: parent.left
-                                        anchors.leftMargin: Style.space(8)
+                                        anchors.leftMargin: Style.spacing.rowPaddingX
                                         spacing: 0
 
                                         Text {
                                             textFormat: Text.PlainText
                                             text: suggestionRow.modelData.name
-                                            color: root.barForeground
+                                            color: root.foreground
                                             font.family: root.fontFamily
                                             font.pixelSize: Style.font.body
                                         }
@@ -979,7 +1083,7 @@ Panel {
                                             textFormat: Text.PlainText
                                             visible: suggestionRow.modelData.description !== ""
                                             text: suggestionRow.modelData.description
-                                            color: Qt.darker(root.barForeground, 1.6)
+                                            color: root.dim
                                             font.family: root.fontFamily
                                             font.pixelSize: Style.font.caption
                                         }
@@ -1001,75 +1105,19 @@ Panel {
 
                         }
 
-                        // ---- Bar display ------------------------------------------------
-                        Column {
-                            width: parent.width
-                            spacing: Style.space(8)
+                    }
 
-                            Text {
-                                textFormat: Text.PlainText
-                                text: "BAR"
-                                color: Qt.darker(root.barForeground, 1.5)
-                                font.family: root.fontFamily
-                                font.pixelSize: Style.font.caption
-                                font.letterSpacing: 1
-                                font.bold: true
-                            }
-
-                            // Toggle: mini radar chart vs umbrella countdown in the bar.
-                            Rectangle {
-                                width: parent.width
-                                height: Style.space(30)
-                                radius: Style.cornerRadius
-                                color: barToggleArea.containsMouse ? Style.hoverFillFor(root.barForeground, Color.accent) : "transparent"
-
-                                Row {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    anchors.left: parent.left
-                                    anchors.leftMargin: Style.space(8)
-                                    anchors.right: parent.right
-                                    anchors.rightMargin: Style.space(8)
-                                    spacing: Style.space(6)
-
-                                    Text {
-                                        textFormat: Text.PlainText
-                                        text: "Show radar in bar"
-                                        color: root.barForeground
-                                        font.family: root.fontFamily
-                                        font.pixelSize: Style.font.body
-                                        anchors.verticalCenter: parent.verticalCenter
-                                    }
-
-                                    Item {
-                                        width: Style.space(14)
-                                        height: Style.space(14)
-                                        anchors.verticalCenter: parent.verticalCenter
-
-                                        Rectangle {
-                                            anchors.fill: parent
-                                            radius: Math.min(4, Style.cornerRadius)
-                                            color: root.barMode === "radar" ? Color.accent : "transparent"
-                                            border.width: Math.max(1, Style.space(1))
-                                            border.color: root.barMode === "radar" ? Color.accent : Qt.darker(root.barForeground, 1.6)
-                                        }
-
-                                    }
-
-                                }
-
-                                MouseArea {
-                                    id: barToggleArea
-
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: root.setBarMode(root.barMode === "radar" ? "umbrella" : "radar")
-                                }
-
-                            }
-
-                        }
-
+                    // ---- Bar display: mini radar chart or the countdown ---------
+                    Toggle {
+                        objectName: "radarToggle"
+                        width: parent.width
+                        label: "Radar in the bar"
+                        description: "The next 90 minutes as a chart"
+                        checked: root.barMode === "radar"
+                        foreground: root.foreground
+                        accent: Color.accent
+                        fontFamily: root.fontFamily
+                        onClicked: root.setBarMode(root.barMode === "radar" ? "umbrella" : "radar")
                     }
 
                 }

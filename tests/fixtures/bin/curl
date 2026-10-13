@@ -1,0 +1,89 @@
+#!/usr/bin/env python3
+"""Stand-in for curl while the spec runs: canned weather, no network.
+
+The plugin shells out to curl for everything it fetches, so putting this
+first on PATH makes every test offline and repeatable. The latitude in the
+request picks the weather, which lets a test choose it by setting a location:
+
+    61.x  raining now (radar and hourly forecast agree)
+    62.x  radar sees rain starting in about 40 minutes; the hourly forecast
+          has it too, as a two-hour window from the next hour
+    63.x  dry
+    64.x  the hourly forecast has rain this hour, the radar sees none
+    40.x  outside radar coverage; the hourly forecast has rain next hour
+     0.x  offline: the request fails
+    else  dry now, rain in three hours for four hours
+
+Times are generated around the current time, like the real services.
+"""
+import json
+import re
+import sys
+from datetime import datetime, timedelta, timezone
+
+url = sys.argv[-1]
+match = re.search(r"lat(?:itude)?=(-?\d+)", url)
+latitude = int(match.group(1)) if match else 60
+
+
+def forecast():
+    now = datetime.now()
+    midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    hours = [midnight + timedelta(hours=i) for i in range(48)]
+    rain = [0.0] * 48
+    code = 3
+    if latitude == 61:
+        rain[now.hour], rain[now.hour + 1], code = 2.4, 1.0, 61
+    elif latitude == 64:
+        rain[now.hour] = 0.6
+    elif latitude == 40:
+        rain[now.hour + 1] = 0.6
+    elif latitude == 62:
+        rain[now.hour + 1 : now.hour + 3] = [1.4, 0.9]
+    elif latitude != 63:
+        rain[now.hour + 3 : now.hour + 7] = [0.8, 2.4, 3.1, 1.2]
+    return {
+        "hourly": {"time": [h.strftime("%Y-%m-%dT%H:%M") for h in hours], "precipitation": rain},
+        "current": {"weather_code": code},
+    }
+
+
+def nowcast():
+    start = datetime.now(timezone.utc).replace(second=0, microsecond=0)
+    start -= timedelta(minutes=start.minute % 5)
+    rates = [0.0] * 19
+    if latitude == 61:
+        rates = [2.4, 2.6, 2.2, 1.8, 1.5, 1.2, 0.9, 0.7, 0.6] + [0.2] * 10
+    elif latitude == 62:
+        rates = [0.0] * 8 + [0.8, 1.2, 1.6, 2.0, 1.4, 1.0, 0.7, 0.4, 0.2, 0.0, 0.0]
+    return {
+        "properties": {
+            "timeseries": [
+                {
+                    "time": (start + timedelta(minutes=5 * i)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "data": {"instant": {"details": {"precipitation_rate": rate}}},
+                }
+                for i, rate in enumerate(rates)
+            ]
+        }
+    }
+
+
+if latitude == 0:
+    sys.exit(6)
+if "ipwho.is" in url:
+    body = {"success": True, "city": "Fixtureville", "latitude": 60.39, "longitude": 5.32}
+elif "geocoding-api" in url:
+    body = {
+        "results": [
+            {"name": "Rainy Bay", "admin1": "Vestland", "country": "Norway", "latitude": 61.2, "longitude": 6.1},
+            {"name": "Dry Hill", "admin1": "Troms", "country": "Norway", "latitude": 63.4, "longitude": 10.4},
+        ]
+    }
+elif "nowcast" in url:
+    body = nowcast()
+elif "open-meteo.com/v1/forecast" in url:
+    body = forecast()
+else:
+    sys.exit(22)
+print(json.dumps(body))

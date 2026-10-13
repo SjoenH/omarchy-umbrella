@@ -4,6 +4,8 @@ A single-purpose Omarchy bar widget that counts down to the next rain. No
 temperatures, no forecasts, no weather dashboard — just the one question:
 **do I need an umbrella today?**
 
+![Umbrella Countdown in the bar with its panel open, with rain on the radar on the left and a dry day on the right](preview.png)
+
 **Plugin ID:** `koka.umbrella`
 **Author:** koka.no ([koka.no](https://koka.no))
 
@@ -39,8 +41,17 @@ omarchy plugin remove koka.umbrella
 
 ## Usage
 
-- **Left-click** — panel with the rain timeline (start–end and mm of every
-  rain window in the next 16 hours) and the location setting
+- **Left-click** — the panel:
+  - the verdict as a card: when the rain starts, how heavy it is, and the
+    countdown in minutes or hours. Where there is radar, the next 90 minutes
+    are charted under it (hover a bar for its time and intensity); a dry radar
+    is a single line instead.
+  - **Next 16 hours**: one row per rain window, with its start, end, total
+    in mm and what that amounts to ("light rain", "moderate rain").
+  - **Location**: click it, or press Return, to search for a city. Arrow keys
+    move through the results, Return picks one, Escape goes back. The ✕ returns
+    to automatic detection.
+  - **Radar in the bar**: swaps the countdown for the mini radar chart.
 - **Right-click** — notification with the current rain verdict
 - **Middle-click** — force a refresh
 
@@ -66,11 +77,17 @@ data it falls back to the umbrella label.
 ## Development
 
 ```sh
-# Pure logic tests (rain windows, thresholds, labels)
-qmltestrunner -input BarWidget.spec.qml
+# The widget and panel themselves, in a headless Quickshell with the installed
+# Omarchy UI kit. Weather comes from tests/fixtures/bin/curl and the location
+# lives in a throwaway HOME, so nothing reaches the network or your settings.
+tests/run.sh
+
+# Pure logic tests (rain windows, thresholds, labels). Use the Qt 6 runner;
+# a plain `qmltestrunner` may be the Qt 5 one, which fails without a message.
+/usr/lib/qt6/bin/qmltestrunner -input BarWidget.spec.qml
 
 # Lint
-OMARCHY_PATH=/usr/share/omarchy qmllint -I /usr/share/omarchy/shell *.qml
+OMARCHY_PATH=/usr/share/omarchy /usr/lib/qt6/bin/qmllint -I /usr/share/omarchy/shell *.qml
 ```
 
 ## History
@@ -78,6 +95,10 @@ OMARCHY_PATH=/usr/share/omarchy qmllint -I /usr/share/omarchy/shell *.qml
 This started as `koka.weather`, a fork of the official `omarchy.weather`
 plugin with umbrella alerts bolted on. v2.0.0 dropped the whole weather
 picture to focus on the one job it was actually doing.
+
+## Credits
+
+Panel layout after Omarchy's world clock.
 
 ## License
 
