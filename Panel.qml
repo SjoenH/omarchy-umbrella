@@ -20,7 +20,6 @@ Panel {
     // slot up the same way.
     property var hostWidget: null
     readonly property var barIdentity: hostWidget || root
-    readonly property string barForeground: root.bar ? root.bar.foreground : Color.foreground
     readonly property string fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
     readonly property color foreground: root.bar ? root.bar.foreground : Color.foreground
     readonly property color dim: Qt.darker(root.foreground, 1.55)
@@ -127,22 +126,6 @@ Panel {
         }
         return out;
     }
-    readonly property string rainStatusLine: {
-        if (!root.fetchedOnce)
-            return "Waiting for forecast…";
-
-        if (root.rain.state === "now")
-            return "☔ Raining now — " + Model.describeRate(root.rain.mm) + " (" + root.rain.mm + " mm/h)";
-
-        if (root.rain.state === "soon")
-            return "☔ Rain starting in " + Math.max(0, root.rain.minutesUntil) + " min";
-
-        if (root.rain.state === "later") {
-            var t = new Date(Date.now() + root.rain.minutesUntil * 60000);
-            return "🌂 Rain at " + Qt.formatTime(t, "HH:mm");
-        }
-        return root.quietGlyph + " Dry for the next 16 hours";
-    }
     // Configured coordinates come from weather.json (owned by
     // omarchy-weather-location); without them the widget falls back to an
     // approximate IP-geolocated position, refreshed with every cycle.
@@ -219,10 +202,6 @@ Panel {
         return false;
     }
 
-    // The shell hands a third-party plugin a bar facade on which this flag is
-    // read-only and is set through a function. Older shells passed the Bar
-    // itself, where the property is written. Either way this must not throw:
-    // open() and close() both call it.
     // ---- What the panel says about the verdict ----------------------------
     // The arched line over the title.
     function captionText() {
@@ -343,6 +322,10 @@ Panel {
         return forecastOnly ? "Forecast only: the radar sees no rain yet" : "Radar is dry for the next 90 minutes";
     }
 
+    // The shell hands a third-party plugin a bar facade on which this flag is
+    // read-only and is set through a function. Older shells passed the Bar
+    // itself, where the property is written. Either way this must not throw:
+    // open() and close() both call it.
     function setCenterHoverRevealSuppressed(value) {
         if (!root.bar)
             return ;
