@@ -193,11 +193,14 @@ Panel {
     }
 
     function close() {
+        // Hide first, before anything that could fail. The panel is a
+        // full-screen overlay while it is open, so a close that throws before
+        // this line leaves every click on the screen landing on it.
+        root.controller.hide();
         setCenterHoverRevealSuppressed(false);
         if (root.editingLocation)
             root.cancelEditingLocation();
 
-        root.controller.hide();
     }
 
     function toggle() {
@@ -214,10 +217,22 @@ Panel {
         return false;
     }
 
+    // The shell hands a third-party plugin a bar facade on which this flag is
+    // read-only and is set through a function. Older shells passed the Bar
+    // itself, where the property is written. Either way this must not throw:
+    // open() and close() both call it.
     function setCenterHoverRevealSuppressed(value) {
-        if (root.bar && "centerHoverRevealSuppressed" in root.bar)
-            root.bar.centerHoverRevealSuppressed = value;
+        if (!root.bar)
+            return ;
 
+        try {
+            if (typeof root.bar.setCenterHoverRevealSuppressed === "function")
+                root.bar.setCenterHoverRevealSuppressed(value);
+            else if ("centerHoverRevealSuppressed" in root.bar)
+                root.bar.centerHoverRevealSuppressed = value;
+        } catch (e) {
+            console.warn("Umbrella: could not set the bar's centerHoverRevealSuppressed flag:", e);
+        }
     }
 
     function startEditingLocation() {
