@@ -1,11 +1,16 @@
 #!/bin/bash
-# Runs the *.spec.qml files against this plugin's real QML and the installed
-# Omarchy UI kit, inside a headless Quickshell. No window appears and nothing
-# touches ~/.config/omarchy/shell.json.
+# Runs the specs in tests/ (tests/*.spec.qml) against this plugin's real QML
+# and the installed Omarchy UI kit, inside a headless Quickshell. No window
+# appears and nothing touches ~/.config/omarchy/shell.json.
 #
-#   tests/run.sh                      run every spec
-#   tests/run.sh BarWidget.spec.qml   run one spec
-#   SPEC_ONLY=cron tests/run.sh       run only the tests whose name contains "cron"
+# BarWidget.spec.qml in the repository root is not one of them: it is a QtTest
+# case for the pure logic and runs under qmltestrunner.
+#
+#   tests/run.sh                        run every spec in tests/
+#   tests/run.sh tests/Panel.spec.qml   run one spec; the path is relative to
+#                                       the directory you run this from
+#   SPEC_ONLY=Closes tests/run.sh       run only the tests whose name contains
+#                                       "Closes"
 set -uo pipefail
 
 here=$(cd "$(dirname "$(readlink -f "$0")")" && pwd)
