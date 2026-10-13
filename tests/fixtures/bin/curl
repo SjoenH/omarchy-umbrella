@@ -9,6 +9,7 @@ request picks the weather, which lets a test choose it by setting a location:
     62.x  radar sees rain starting in about 40 minutes; the hourly forecast
           has it too, as a two-hour window from the next hour
     63.x  dry
+    64.x  the hourly forecast has rain this hour, the radar sees none
     40.x  outside radar coverage; the hourly forecast has rain next hour
      0.x  offline: the request fails
     else  dry now, rain in three hours for four hours
@@ -33,6 +34,8 @@ def forecast():
     code = 3
     if latitude == 61:
         rain[now.hour], rain[now.hour + 1], code = 2.4, 1.0, 61
+    elif latitude == 64:
+        rain[now.hour] = 0.6
     elif latitude == 40:
         rain[now.hour + 1] = 0.6
     elif latitude == 62:

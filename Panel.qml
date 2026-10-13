@@ -334,6 +334,15 @@ Panel {
         return Qt.rgba(from.r + (root.foreground.r - from.r) * amount, from.g + (root.foreground.g - from.g) * amount, from.b + (root.foreground.b - from.b) * amount, 1);
     }
 
+    // Under the verdict when the radar covers the place but sees nothing.
+    // The hourly forecast decides then, and it can say rain now, or within
+    // the radar's 90 minutes, while the radar is empty. Say which is which
+    // rather than "raining now" over "radar is dry".
+    function dryRadarLine() {
+        var forecastOnly = root.rain.state === "now" || (root.rain.state === "soon" && root.rain.minutesUntil <= 90);
+        return forecastOnly ? "Forecast only: the radar sees no rain yet" : "Radar is dry for the next 90 minutes";
+    }
+
     function setCenterHoverRevealSuppressed(value) {
         if (!root.bar)
             return ;
@@ -781,7 +790,7 @@ Panel {
                                 width: parent.width
                                 visible: root.nowcastSeries.length > 0 && !root.radarShowsRain
                                 textFormat: Text.PlainText
-                                text: "Radar is dry for the next 90 minutes"
+                                text: root.dryRadarLine()
                                 color: root.dim
                                 font.family: root.fontFamily
                                 font.pixelSize: Style.font.caption

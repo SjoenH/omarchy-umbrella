@@ -242,6 +242,23 @@ Item {
         h.compare(h.byName("radarDryLine").text, "Radar is dry for the next 90 minutes");
     }
 
+    // The hourly forecast decides when the radar sees nothing, so it can say
+    // "raining now" under an empty radar. The line under the verdict has to
+    // say which source is talking instead of contradicting it.
+    function* test_aForecastOfRainUnderADryRadarSaysSo() {
+        var w = widget();
+        yield fetch;
+        moveTo("Drizzle Dale", 64.2, 11.1);
+        yield fetch;
+        w.open();
+        yield 100;
+        h.compare(panel().rain.state, "now", "the hourly forecast has rain this hour");
+        h.compare(panel().radarShowsRain, false, "and the radar has none");
+        h.compare(h.byName("verdictCard").name, "Raining now");
+        h.compare(h.byName("radarDryLine").visible, true);
+        h.compare(h.byName("radarDryLine").text, "Forecast only: the radar sees no rain yet");
+    }
+
     function* test_outsideRadarCoverageTheHourlyForecastDecides() {
         var w = widget();
         yield fetch;
